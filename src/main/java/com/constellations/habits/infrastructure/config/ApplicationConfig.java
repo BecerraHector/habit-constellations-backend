@@ -9,7 +9,11 @@ import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.application.port.out.PasswordHasher;
+import com.constellations.habits.application.port.out.RefreshTokenRepository;
+import com.constellations.habits.application.port.out.TokenHasher;
+import com.constellations.habits.application.port.out.TransactionRunner;
 import com.constellations.habits.application.port.out.UserRepository;
+import com.constellations.habits.infrastructure.security.JwtProperties;
 import com.constellations.habits.application.social.FriendshipService;
 import com.constellations.habits.application.user.InviteCodeAllocator;
 import com.constellations.habits.application.user.UserAccountService;
@@ -47,9 +51,15 @@ public class ApplicationConfig {
             UserRepository users,
             PasswordHasher hasher,
             AccessTokenIssuer tokens,
+            RefreshTokenRepository refreshTokens,
+            TokenHasher tokenHasher,
             InviteCodeAllocator inviteCodes,
+            TransactionRunner transaction,
+            JwtProperties jwt,
             Clock clock) {
-        return new UserAccountService(users, hasher, tokens, inviteCodes, clock);
+        return new UserAccountService(
+                users, hasher, tokens, refreshTokens, tokenHasher, inviteCodes, transaction,
+                jwt.refreshTokenTtl(), clock);
     }
 
     @Bean
@@ -59,8 +69,9 @@ public class ApplicationConfig {
             HabitRepository habits,
             HabitLogRepository logs,
             UserRepository users,
+            TransactionRunner transaction,
             Clock clock) {
-        return new GalaxyService(galaxies, memberships, habits, logs, users, clock);
+        return new GalaxyService(galaxies, memberships, habits, logs, users, transaction, clock);
     }
 
     /**
@@ -74,8 +85,9 @@ public class ApplicationConfig {
             HabitLogRepository logs,
             UserRepository users,
             GalaxyService galaxies,
+            TransactionRunner transaction,
             Clock clock) {
-        return new HabitService(habits, logs, users, galaxies, clock);
+        return new HabitService(habits, logs, users, galaxies, transaction, clock);
     }
 
     @Bean

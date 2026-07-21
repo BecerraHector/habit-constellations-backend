@@ -7,6 +7,7 @@ import com.constellations.habits.application.exception.FriendshipNotFoundExcepti
 import com.constellations.habits.application.exception.GalaxyNotFoundException;
 import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
+import com.constellations.habits.application.exception.InvalidRefreshTokenException;
 import com.constellations.habits.application.exception.InviteCodeNotFoundException;
 import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.domain.ValidationException;
@@ -15,6 +16,7 @@ import com.constellations.habits.domain.habit.ArchivedHabitException;
 import com.constellations.habits.domain.habit.InvalidLogDateException;
 import com.constellations.habits.domain.social.FriendshipStateException;
 import com.constellations.habits.domain.social.SelfFriendshipException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -68,8 +70,8 @@ class GlobalExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
-    @ExceptionHandler(InvalidCredentialsException.class)
-    ProblemDetail onInvalidCredentials(InvalidCredentialsException e) {
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
+    ProblemDetail onInvalidCredentials(RuntimeException e) {
         return problem(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
@@ -83,6 +85,20 @@ class GlobalExceptionHandler {
     })
     ProblemDetail onNotFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    /**
+     * Ultima linea de defensa de las restricciones del esquema.
+     *
+     * <p>Los casos de uso comprueban antes de escribir, pero entre la comprobacion y la
+     * escritura cabe otra peticion. Cuando eso pasa, quien rechaza es el indice unico, y
+     * el resultado correcto es un conflicto y no un 500: la peticion era legitima, solo
+     * llego segunda. No se propaga el mensaje de la base de datos, que revelaria nombres
+     * de tablas e indices.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail onConstraintViolation(DataIntegrityViolationException e) {
+        return problem(HttpStatus.CONFLICT, "La operacion choca con un registro existente");
     }
 
     private static ProblemDetail problem(HttpStatus status, String detail) {

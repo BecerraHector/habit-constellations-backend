@@ -9,7 +9,17 @@ import java.util.UUID;
 
 public interface HabitLogRepository {
 
-    HabitLog save(HabitLog log);
+    /**
+     * Registra el cumplimiento si ese dia no estaba ya marcado.
+     *
+     * <p>La comprobacion la resuelve el adaptador y no el caso de uso porque quien
+     * garantiza la unicidad de {@code (habit_id, log_date)} es la base de datos: entre
+     * un "existe?" y un "inserta" cabe otra peticion, y un doble toque del cliente
+     * acabaria en un error 500 en vez de en la operacion idempotente que se promete.
+     *
+     * @return true si este registro creo la estrella; false si ya existia
+     */
+    boolean saveIfAbsent(HabitLog log);
 
     /**
      * Todas las fechas cumplidas de un habito. El motor de rachas necesita el historial
@@ -22,8 +32,6 @@ public interface HabitLogRepository {
      * del usuario (problema N+1).
      */
     Map<UUID, List<LocalDate>> findDatesByHabits(List<UUID> habitIds);
-
-    boolean existsByHabitAndDate(UUID habitId, LocalDate logDate);
 
     /** @return true si habia un log que borrar. */
     boolean deleteByHabitAndDate(UUID habitId, LocalDate logDate);

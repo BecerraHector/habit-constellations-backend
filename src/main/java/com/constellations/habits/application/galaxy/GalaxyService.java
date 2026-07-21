@@ -8,6 +8,7 @@ import com.constellations.habits.application.port.out.GalaxyMembershipRepository
 import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
+import com.constellations.habits.application.port.out.TransactionRunner;
 import com.constellations.habits.application.port.out.UserRepository;
 import com.constellations.habits.domain.galaxy.Galaxy;
 import com.constellations.habits.domain.galaxy.GalaxyMap;
@@ -56,6 +57,7 @@ public class GalaxyService {
     private final HabitRepository habits;
     private final HabitLogRepository logs;
     private final UserRepository users;
+    private final TransactionRunner transaction;
     private final Clock clock;
 
     public GalaxyService(
@@ -64,36 +66,52 @@ public class GalaxyService {
             HabitRepository habits,
             HabitLogRepository logs,
             UserRepository users,
+            TransactionRunner transaction,
             Clock clock) {
         this.galaxies = galaxies;
         this.memberships = memberships;
         this.habits = habits;
         this.logs = logs;
         this.users = users;
+        this.transaction = transaction;
         this.clock = clock;
     }
 
-    /** Crear una galaxia mete dentro al creador: una galaxia vacia no tiene sentido. */
+    /**
+     * Crear una galaxia mete dentro al creador: una galaxia vacia no tiene sentido.
+     *
+     * <p>Los tres pasos van en una transaccion. Si fallara el ultimo, quedaria una
+     * galaxia sin miembros —invisible en los listados y sin forma de borrarla— y un
+     * habito huerfano en el panel de su creador.
+     */
     public GalaxyView create(UUID userId, CreateGalaxyCommand command) {
         User user = requireUser(userId);
-        Galaxy galaxy = galaxies.save(Galaxy.create(
-                userId, command.name(), command.description(), command.theme(), clock.instant()));
 
-        GalaxyMembership mine =
-                enroll(user, galaxy, command.habitId(), user.today(clock.instant()));
-        return GalaxyView.of(galaxy, 1, mine);
+        return transaction.execute(() -> {
+            Galaxy galaxy = galaxies.save(Galaxy.create(
+                    userId, command.name(), command.description(), command.theme(),
+                    clock.instant()));
+
+            GalaxyMembership mine =
+                    enroll(user, galaxy, command.habitId(), user.today(clock.instant()));
+            return GalaxyView.of(galaxy, 1, mine);
+        });
     }
 
     public GalaxyView join(UUID userId, UUID galaxyId, UUID habitId) {
         User user = requireUser(userId);
         Galaxy galaxy = requireGalaxy(galaxyId);
 
-        memberships.findActive(galaxyId, userId).ifPresent(existing -> {
-            throw new AlreadyMemberException();
-        });
+        return transaction.execute(() -> {
+            memberships.findActive(galaxyId, userId).ifPresent(existing -> {
+                throw new AlreadyMemberException();
+            });
 
-        GalaxyMembership mine = enroll(user, galaxy, habitId, user.today(clock.instant()));
-        return GalaxyView.of(galaxy, activeMemberCount(galaxyId), mine);
+            // Si la pertenencia no llega a escribirse, el habito recien creado tampoco:
+            // el usuario no se queda con un habito que nunca pidio.
+            GalaxyMembership mine = enroll(user, galaxy, habitId, user.today(clock.instant()));
+            return GalaxyView.of(galaxy, activeMemberCount(galaxyId), mine);
+        });
     }
 
     /**
@@ -116,8 +134,8 @@ public class GalaxyService {
      */
     public void releaseArchivedHabit(UUID habitId, LocalDate today) {
         Instant now = clock.instant();
-        memberships.findActiveByHabit(habitId)
-                .forEach(membership -> memberships.save(membership.leave(today, now)));
+        transaction.run(() -> memberships.findActiveByHabit(habitId)
+                .forEach(membership -> memberships.save(membership.leave(today, now))));
     }
 
     public List<GalaxyView> listMine(UUID userId) {

@@ -5,6 +5,7 @@ import com.constellations.habits.application.user.RegisterUserCommand;
 import com.constellations.habits.application.user.UserAccountService;
 import com.constellations.habits.infrastructure.security.AuthenticatedUserId;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.LoginRequest;
+import com.constellations.habits.infrastructure.web.dto.AuthDtos.RefreshRequest;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.RegisterRequest;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.TokenResponse;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.UserResponse;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.constellations.habits.application.exception.UserNotFoundException;
@@ -44,6 +46,22 @@ class AuthController {
     TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return TokenResponse.from(
                 accounts.login(new LoginCommand(request.email(), request.password())));
+    }
+
+    /**
+     * Renueva el token de acceso sin volver a pedir la contrasena. Rota el de refresco:
+     * el presentado queda revocado y se entrega uno nuevo en la respuesta.
+     */
+    @PostMapping("/refresh")
+    TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return TokenResponse.from(accounts.refresh(request.refreshToken()));
+    }
+
+    /** Cierra la sesion. Idempotente: repetirlo no es un error ni confirma nada. */
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void logout(@Valid @RequestBody RefreshRequest request) {
+        accounts.logout(request.refreshToken());
     }
 
     /** Quien soy: util para que el cliente compruebe que su token sigue vivo. */

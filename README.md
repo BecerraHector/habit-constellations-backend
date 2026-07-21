@@ -22,7 +22,15 @@ export HABITS_SECURITY_JWT_SECRET="$(openssl rand -base64 48)"
 ./mvnw spring-boot:run
 ```
 
-La API queda disponible en `http://localhost:8080`.
+La API queda disponible en `http://localhost:8080` y su documentación navegable en
+`http://localhost:8080/swagger-ui.html` (esquema en `/v3/api-docs`).
+
+Para consumirla desde un frontend en el navegador hay que declarar su origen; la lista
+está **vacía por defecto**, porque sin cliente desplegado lo correcto es no abrir nada:
+
+```bash
+export HABITS_WEB_CORS_ALLOWED_ORIGINS="http://localhost:5173"
+```
 
 Para ejecutar también la aplicación dentro de Docker:
 `docker compose --profile full up --build`.
@@ -258,7 +266,9 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | Método   | Ruta                              | Descripción                                |
 |----------|-----------------------------------|--------------------------------------------|
 | `POST`   | `/api/v1/auth/register`           | Crear cuenta                               |
-| `POST`   | `/api/v1/auth/login`              | Obtener token de acceso                    |
+| `POST`   | `/api/v1/auth/login`              | Obtener tokens de acceso y de refresco     |
+| `POST`   | `/api/v1/auth/refresh`            | Renovar el acceso (rota el de refresco)    |
+| `POST`   | `/api/v1/auth/logout`             | Cerrar sesión (revoca el de refresco)      |
 | `GET`    | `/api/v1/auth/me`                 | Datos del usuario autenticado              |
 | `GET`    | `/api/v1/habits`                  | Hábitos activos con su progreso            |
 | `POST`   | `/api/v1/habits`                  | Crear hábito                               |
@@ -314,6 +324,22 @@ curl -X POST localhost:8080/api/v1/habits \
   -d '{"name":"Meditar 10 minutos"}'
 ```
 
+## Sesiones
+
+El token de acceso dura 30 minutos. El de refresco dura 30 días y sirve para renovarlo
+sin volver a pedir la contraseña.
+
+Es un **valor opaco y aleatorio de 256 bits, no un JWT**, y eso resuelve dos cosas a la
+vez: no puede colarse como token de acceso —el filtro lo descarta porque ni siquiera es
+un JWT—, y al no llevar información dentro, revocarlo es marcar una fila. De esa fila
+solo se guarda su hash, igual que con las contraseñas: leer la base de datos no basta
+para suplantar a nadie.
+
+Cada renovación **rota** el token: el presentado se revoca y se entrega otro. Si un token
+ya revocado vuelve a presentarse, se cierran **todas** las sesiones de ese usuario. Que
+aparezca dos veces significa que existe una copia, y no hay forma de saber cuál de las
+dos partes es la legítima.
+
 ## Decisiones técnicas
 
 - **Flyway es la única fuente de verdad del esquema.** Hibernate se limita a validarlo
@@ -334,6 +360,14 @@ curl -X POST localhost:8080/api/v1/habits \
 - **Archivar un hábito cierra las pertenencias que alimentaba.** Esto acopla el caso de
   uso de hábitos al de galaxias; lo limpio sería un evento de dominio, pero no compensa
   montar esa infraestructura para un único caso. Queda anotado en `ApplicationConfig`.
+- **Las transacciones se declaran con un puerto, no con `@Transactional`.** Los casos de
+  uso son POJOs y la anotación obligaría a importar Spring en la capa de aplicación, que
+  es justo lo que `LayeringTest` prohíbe. `TransactionRunner` deja la frontera visible al
+  leer el método, en vez de depender de un proxy que además se desactiva en silencio
+  cuando un método se llama a sí mismo.
+- **Marcar un hábito delega la unicidad en la base de datos.** Comprobar y después
+  escribir deja una ventana entre ambas consultas; un doble toque acabaría en error en
+  lugar de en la operación idempotente que se promete.
 
 ## Estado
 

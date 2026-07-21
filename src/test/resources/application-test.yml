@@ -6,6 +6,10 @@ habits:
     jwt:
       # Clave descartable exclusiva de los tests: no protege nada real.
       secret: test-only-signing-key-not-a-real-secret-0123456789
+  web:
+    cors:
+      # En produccion la lista va vacia; aqui se fija para poder ejercitar el preflight.
+      allowed-origins: http://localhost:5173
 
 logging:
   level:

@@ -45,14 +45,26 @@ public final class AuthDtos {
         }
     }
 
+    public record RefreshRequest(@NotBlank String refreshToken) {}
+
+    /**
+     * El token de refresco se devuelve en el cuerpo y no en una cookie porque la API es
+     * stateless y sirve tambien a clientes que no son navegadores. El cliente web deberia
+     * guardarlo donde no lo alcance un script de terceros.
+     */
     public record TokenResponse(
-            String accessToken, String tokenType, long expiresInSeconds, UserResponse user) {
+            String accessToken,
+            String tokenType,
+            long expiresInSeconds,
+            String refreshToken,
+            UserResponse user) {
 
         public static TokenResponse from(AuthenticatedUser authenticated) {
             return new TokenResponse(
                     authenticated.accessToken(),
                     "Bearer",
                     authenticated.expiresInSeconds(),
+                    authenticated.refreshToken(),
                     UserResponse.from(authenticated.user()));
         }
     }

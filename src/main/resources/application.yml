@@ -23,6 +23,11 @@ habits:
       access-token-ttl: PT30M
       refresh-token-ttl: P30D
       issuer: habit-tracker
+  web:
+    cors:
+      # Vacio por defecto: sin frontend desplegado, lo correcto es no abrir nada.
+      # En desarrollo se exportan los puertos de Vite y Next: HABITS_WEB_CORS_ALLOWED_ORIGINS
+      allowed-origins: ${HABITS_WEB_CORS_ALLOWED_ORIGINS:}
 
 management:
   endpoints:

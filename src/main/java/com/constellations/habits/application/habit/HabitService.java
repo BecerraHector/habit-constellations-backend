@@ -5,6 +5,7 @@ import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
+import com.constellations.habits.application.port.out.TransactionRunner;
 import com.constellations.habits.application.port.out.UserRepository;
 import com.constellations.habits.domain.habit.CompletionWindow;
 import com.constellations.habits.domain.habit.Habit;
@@ -32,6 +33,7 @@ public class HabitService {
     private final HabitLogRepository logs;
     private final UserRepository users;
     private final GalaxyService galaxies;
+    private final TransactionRunner transaction;
     private final Clock clock;
 
     public HabitService(
@@ -39,11 +41,13 @@ public class HabitService {
             HabitLogRepository logs,
             UserRepository users,
             GalaxyService galaxies,
+            TransactionRunner transaction,
             Clock clock) {
         this.habits = habits;
         this.logs = logs;
         this.users = users;
         this.galaxies = galaxies;
+        this.transaction = transaction;
         this.clock = clock;
     }
 
@@ -90,8 +94,14 @@ public class HabitService {
      */
     public void archive(UUID ownerId, UUID habitId) {
         Habit habit = requireOwned(ownerId, habitId);
-        habits.save(habit.archive(clock.instant()));
-        galaxies.releaseArchivedHabit(habitId, todayFor(ownerId));
+        LocalDate today = todayFor(ownerId);
+
+        // Ambas cosas o ninguna: un habito archivado cuyas pertenencias siguieran vivas
+        // seguiria contando en el denominador del brillo sin poder marcar nada.
+        transaction.run(() -> {
+            habits.save(habit.archive(clock.instant()));
+            galaxies.releaseArchivedHabit(habitId, today);
+        });
     }
 
     /**
@@ -109,9 +119,7 @@ public class HabitService {
         LocalDate logDate = requestedDate != null ? requestedDate : today;
         CompletionWindow.requireWithinWindow(logDate, today);
 
-        if (!logs.existsByHabitAndDate(habitId, logDate)) {
-            logs.save(HabitLog.of(habitId, logDate, clock.instant()));
-        }
+        logs.saveIfAbsent(HabitLog.of(habitId, logDate, clock.instant()));
         return new HabitView(habit, progressOf(habit, today));
     }
 

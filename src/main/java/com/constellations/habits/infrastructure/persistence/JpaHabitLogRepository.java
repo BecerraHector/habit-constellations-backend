@@ -2,6 +2,7 @@ package com.constellations.habits.infrastructure.persistence;
 
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.domain.habit.HabitLog;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +21,29 @@ class JpaHabitLogRepository implements HabitLogRepository {
         this.delegate = delegate;
     }
 
+    /**
+     * Se intenta insertar y se acepta el rechazo del indice unico como "ya estaba".
+     *
+     * <p>Comprobar antes y escribir despues deja una ventana entre ambas consultas: dos
+     * toques simultaneos —o el reintento de un cliente con mala red— pasarian los dos la
+     * comprobacion y el segundo reventaria contra la restriccion. Delegar en la base de
+     * datos convierte esa carrera en el resultado que ya se prometia: nada cambia y no
+     * es un error.
+     */
     @Override
-    public HabitLog save(HabitLog log) {
-        return toDomain(delegate.save(toEntity(log)));
+    @Transactional
+    public boolean saveIfAbsent(HabitLog log) {
+        if (delegate.existsByHabitIdAndLogDate(log.habitId(), log.logDate())) {
+            return false;
+        }
+        try {
+            delegate.saveAndFlush(toEntity(log));
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            // Otro hilo gano la carrera. El dia queda marcado igualmente, que es lo unico
+            // que le importa a quien llamo.
+            return false;
+        }
     }
 
     @Override
@@ -39,11 +60,6 @@ class JpaHabitLogRepository implements HabitLogRepository {
                 .collect(Collectors.groupingBy(
                         row -> (UUID) row[0],
                         Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())));
-    }
-
-    @Override
-    public boolean existsByHabitAndDate(UUID habitId, LocalDate logDate) {
-        return delegate.existsByHabitIdAndLogDate(habitId, logDate);
     }
 
     @Override
