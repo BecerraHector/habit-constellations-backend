@@ -229,6 +229,27 @@ Al tocar un día se listan **quienes cumplieron**, nunca quienes faltaron. La in
 deducible es la misma, pero una lista de ausentes convierte el mapa en un tablón de
 reproches.
 
+### El catálogo
+
+Los temas se ordenan por cuánta gente los sostiene de verdad, no por una lista curada:
+la popularidad sale de contar miembros activos. Elegir un tema del catálogo **no te mete
+en un grupo global**, crea tu propia galaxia sobre ese tema; el catálogo orienta, pero el
+brillo mide siempre a tu grupo real.
+
+Los temas se normalizan a un slug sin tildes, de modo que «Gym», «gym » y «GYM» son el
+mismo. Sin eso el recuento se fragmenta en variantes y ningún tema llega a parecer
+popular. Seis temas sugeridos aparecen al final con cero miembros para que el catálogo no
+salga vacío el primer día, sin fingir una popularidad que todavía no tienen.
+
+### Límite conocido
+
+En una galaxia abierta muy concurrida el brillo deja de ser presión de grupo y se
+convierte en una estadística: un ~40% constante no interpela a nadie. El modelo aguanta
+la carga —el mapa se resuelve en tres consultas sea cual sea el número de miembros—, pero
+si en uso real las galaxias grandes se sienten anónimas, la salida natural es filtrar el
+mapa a los amigos que hay dentro del grupo. Las amistades ya existen, así que es
+básicamente una condición más en la consulta.
+
 ## API
 
 Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
@@ -304,9 +325,15 @@ curl -X POST localhost:8080/api/v1/habits \
   usuario y las constelaciones ya ganadas no deberían desaparecer.
 - **El login no distingue entre email inexistente y contraseña incorrecta**, para no
   permitir enumerar qué cuentas están registradas.
-- **Sin base de datos de grafos.** Las amistades se modelarán como tabla relacional; se
+- **Sin base de datos de grafos.** Las amistades son una tabla relacional; se
   reconsiderará únicamente si aparecen consultas de grafo reales, como sugerencias de
   amigos de amigos.
+- **Ni las rachas ni el brillo se persisten.** Ambos son funciones puras sobre los
+  registros (`StreakCalculator`, `LuminosityCalculator`), así que no existe una copia que
+  pueda quedar desincronizada ni una columna que reparar cuando cambien las reglas.
+- **Archivar un hábito cierra las pertenencias que alimentaba.** Esto acopla el caso de
+  uso de hábitos al de galaxias; lo limpio sería un evento de dominio, pero no compensa
+  montar esa infraestructura para un único caso. Queda anotado en `ApplicationConfig`.
 
 ## Estado
 
