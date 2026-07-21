@@ -51,19 +51,48 @@ public final class LuminosityCalculator {
         int completed = 0;
 
         for (GalaxyMembership membership : memberships) {
-            if (!membership.isActiveOn(day)) {
-                continue;
-            }
-            active++;
             // Solo cuentan los cumplimientos de quien era miembro: si alguien se fue y
             // siguio con el habito por su cuenta, sus estrellas son suyas, no del grupo.
-            if (completionsByHabit
+            if (!membership.wasMemberOn(day)) {
+                continue;
+            }
+
+            boolean completedThatDay = completionsByHabit
                     .getOrDefault(membership.habitId(), Set.of())
-                    .contains(day)) {
+                    .contains(day);
+
+            if (!countsOn(membership, day, completedThatDay)) {
+                continue;
+            }
+
+            active++;
+            if (completedThatDay) {
                 completed++;
             }
         }
 
         return GalaxyDay.of(day, completed, active);
+    }
+
+    /**
+     * Si esta persona entra en el recuento de ese dia.
+     *
+     * <p>Publico porque el desglose de un dia concreto tiene que aplicar exactamente la
+     * misma regla: si viviera duplicada, la lista de nombres y la cifra del mapa podrian
+     * dejar de cuadrar.
+     *
+     * <p>El dia de la salida es el unico ambiguo, y se resuelve a favor de quien se va:
+     * si cumplio antes de marcharse, su estrella sigue siendo suya y el dia la conserva;
+     * si no cumplio, no se le cuenta, para que su ausencia no ensombrezca un dia del que
+     * ya no formaba parte. Cualquiera de las dos reglas por si sola perjudica a alguien
+     * sin motivo.
+     */
+    public static boolean countsOn(
+            GalaxyMembership membership, LocalDate day, boolean completedThatDay) {
+
+        if (!membership.wasMemberOn(day)) {
+            return false;
+        }
+        return completedThatDay || !membership.isLeavingOn(day);
     }
 }

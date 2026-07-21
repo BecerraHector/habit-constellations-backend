@@ -3,13 +3,17 @@ package com.constellations.habits.application.user;
 import com.constellations.habits.application.exception.EmailAlreadyUsedException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
 import com.constellations.habits.application.exception.InvalidRefreshTokenException;
+import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.application.port.out.AccessTokenIssuer;
+import com.constellations.habits.application.port.out.FriendshipRepository;
+import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.application.port.out.PasswordHasher;
 import com.constellations.habits.application.port.out.RefreshTokenRepository;
 import com.constellations.habits.application.port.out.TokenHasher;
 import com.constellations.habits.application.port.out.TransactionRunner;
 import com.constellations.habits.application.port.out.UserRepository;
 import com.constellations.habits.domain.ValidationException;
+import com.constellations.habits.domain.habit.Habit;
 import com.constellations.habits.domain.user.RefreshToken;
 import com.constellations.habits.domain.user.User;
 
@@ -17,7 +21,11 @@ import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /** Casos de uso de registro y autenticacion. */
 public class UserAccountService {
@@ -25,7 +33,13 @@ public class UserAccountService {
     /** Suficiente para frenar fuerza bruta sin castigar a quien usa frases largas. */
     private static final int MIN_PASSWORD_LENGTH = 10;
 
+    /** Lo que queda de un habito cuyo dueno se dio de baja pero cuyas estrellas siguen. */
+    private static final String ANONYMIZED_HABIT_NAME = "Habito de una cuenta eliminada";
+
     private final UserRepository users;
+    private final HabitRepository habits;
+    private final FriendshipRepository friendships;
+    private final GalaxyService galaxies;
     private final PasswordHasher hasher;
     private final AccessTokenIssuer tokens;
     private final RefreshTokenRepository refreshTokens;
@@ -37,6 +51,9 @@ public class UserAccountService {
 
     public UserAccountService(
             UserRepository users,
+            HabitRepository habits,
+            FriendshipRepository friendships,
+            GalaxyService galaxies,
             PasswordHasher hasher,
             AccessTokenIssuer tokens,
             RefreshTokenRepository refreshTokens,
@@ -46,6 +63,9 @@ public class UserAccountService {
             Duration refreshTokenTtl,
             Clock clock) {
         this.users = users;
+        this.habits = habits;
+        this.friendships = friendships;
+        this.galaxies = galaxies;
         this.hasher = hasher;
         this.tokens = tokens;
         this.refreshTokens = refreshTokens;
@@ -138,6 +158,54 @@ public class UserAccountService {
         refreshTokens.findByHash(tokenHasher.hash(rawRefreshToken))
                 .filter(token -> !token.isRevoked())
                 .ifPresent(token -> refreshTokens.save(token.revoke(clock.instant())));
+    }
+
+    /**
+     * Da de baja la cuenta. Pide la contrasena porque es irreversible y un token robado
+     * no deberia bastar para borrarle la vida a nadie.
+     *
+     * <p>Lo que ocurre, y por que:
+     * <ul>
+     *   <li>Sale de todas sus galaxias con fecha de hoy. Desde este momento el grupo no
+     *       la espera: ni cuenta en el denominador ni su ausencia oscurece nada.</li>
+     *   <li>Sus habitos privados se borran de verdad, con sus registros. Nadie mas los
+     *       vio nunca.</li>
+     *   <li>Los habitos que alimentaban una galaxia conservan sus registros pero pierden
+     *       el nombre. "Terapia los martes" dice mucho de alguien; una fila
+     *       {@code (habito, fecha)} sin nombre es un recuento anonimo, y el brillo de los
+     *       dias ya vividos por otras personas depende de el.</li>
+     *   <li>La fila del usuario queda como lapida anonima, sin email, sin contrasena
+     *       utilizable y sin el codigo de invitacion.</li>
+     * </ul>
+     */
+    public void deleteAccount(UUID userId, String password) {
+        User user = users.findById(userId)
+                .filter(candidate -> !candidate.isDeleted())
+                .filter(candidate -> hasher.matches(password, candidate.passwordHash()))
+                .orElseThrow(InvalidCredentialsException::new);
+
+        LocalDate today = user.today(clock.instant());
+        Set<UUID> linkedToGalaxies = galaxies.releaseAllMembershipsOf(userId, today);
+
+        transaction.run(() -> {
+            List<Habit> own = habits.findAllByOwner(userId);
+            Instant now = clock.instant();
+
+            List<UUID> disposable = own.stream()
+                    .map(Habit::id)
+                    .filter(habitId -> !linkedToGalaxies.contains(habitId))
+                    .toList();
+            habits.deleteAll(disposable);
+
+            own.stream()
+                    .filter(habit -> linkedToGalaxies.contains(habit.id()))
+                    .forEach(habit -> habits.save(
+                            habit.anonymize(ANONYMIZED_HABIT_NAME, now)));
+
+            friendships.deleteAllInvolving(userId);
+            refreshTokens.deleteAllForUser(userId);
+            users.save(user.anonymize(inviteCodes.allocate(), now));
+        });
     }
 
     private AuthenticatedUser authenticate(User user) {

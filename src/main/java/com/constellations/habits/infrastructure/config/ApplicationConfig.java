@@ -49,6 +49,9 @@ public class ApplicationConfig {
     @Bean
     UserAccountService userAccountService(
             UserRepository users,
+            HabitRepository habits,
+            FriendshipRepository friendships,
+            GalaxyService galaxies,
             PasswordHasher hasher,
             AccessTokenIssuer tokens,
             RefreshTokenRepository refreshTokens,
@@ -58,8 +61,8 @@ public class ApplicationConfig {
             JwtProperties jwt,
             Clock clock) {
         return new UserAccountService(
-                users, hasher, tokens, refreshTokens, tokenHasher, inviteCodes, transaction,
-                jwt.refreshTokenTtl(), clock);
+                users, habits, friendships, galaxies, hasher, tokens, refreshTokens, tokenHasher,
+                inviteCodes, transaction, jwt.refreshTokenTtl(), clock);
     }
 
     @Bean

@@ -323,6 +323,97 @@ class GalaxyApiIntegrationTest {
     }
 
     @Test
+    void borrar_la_cuenta_saca_del_grupo_pero_no_reescribe_el_pasado() throws Exception {
+        var ana = registerUser("baja");
+        var bruno = registerUser("queda");
+
+        String galaxyId = createGalaxy(ana.token(), "Nadar", "natacion", null);
+        String deAna = habitOf(ana.token(), galaxyId);
+        String deBruno = joinAndGetHabit(bruno.token(), galaxyId);
+
+        complete(ana.token(), deAna);
+        complete(bruno.token(), deBruno);
+
+        // Hoy fue un pleno de dos.
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId)
+                        .header("Authorization", "Bearer " + bruno.token()))
+                .andExpect(jsonPath("$.map.days[0].completions").value(2))
+                .andExpect(jsonPath("$.map.days[0].activeMembers").value(2))
+                .andExpect(jsonPath("$.map.days[0].level").value(4));
+
+        deleteAccount(ana.token());
+
+        // Sigue siendo un pleno de dos: darse de baja no puede repintar el martes de
+        // otra persona. Pero la galaxia ya no la espera.
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId)
+                        .header("Authorization", "Bearer " + bruno.token()))
+                .andExpect(jsonPath("$.map.days[0].completions").value(2))
+                .andExpect(jsonPath("$.map.days[0].activeMembers").value(2))
+                .andExpect(jsonPath("$.galaxy.activeMembers").value(1));
+    }
+
+    @Test
+    void quien_borro_su_cuenta_aparece_como_lapida_anonima() throws Exception {
+        var ana = registerUser("fantasma");
+        var bruno = registerUser("testigo");
+
+        String galaxyId = createGalaxy(ana.token(), "Escribir", "escritura", null);
+        complete(ana.token(), habitOf(ana.token(), galaxyId));
+        joinAndGetHabit(bruno.token(), galaxyId);
+
+        deleteAccount(ana.token());
+
+        String body = mvc.perform(get("/api/v1/galaxies/" + galaxyId + "/days/" + today())
+                        .header("Authorization", "Bearer " + bruno.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completions").value(1))
+                .andExpect(jsonPath("$.completedBy[0]").value("Cuenta eliminada"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain(ana.displayName());
+    }
+
+    @Test
+    void tras_la_baja_no_se_puede_iniciar_sesion() throws Exception {
+        var ana = registerUser("despedida");
+        deleteAccount(ana.token());
+
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"constelacion-secreta"}"""
+                                .formatted(ana.email())))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void la_baja_exige_la_contrasena() throws Exception {
+        var ana = registerUser("dudosa");
+
+        mvc.perform(delete("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + ana.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"password":"no-es-la-suya"}"""))
+                .andExpect(status().isUnauthorized());
+
+        // Sigue viva.
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + ana.token()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void los_endpoints_de_cuenta_exigen_sesion() throws Exception {
+        // Viven bajo /auth/ pero no son publicos, a diferencia de login y registro.
+        mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/v1/auth/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"password":"da-igual"}"""))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void sin_token_los_endpoints_de_galaxias_responden_401() throws Exception {
         mvc.perform(get("/api/v1/galaxies")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/galaxies/catalog")).andExpect(status().isUnauthorized());
@@ -420,6 +511,15 @@ class GalaxyApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         return JsonPath.read(body, "$.id");
+    }
+
+    private void deleteAccount(String token) throws Exception {
+        mvc.perform(delete("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"password":"constelacion-secreta"}"""))
+                .andExpect(status().isNoContent());
     }
 
     private void complete(String token, String habitId) throws Exception {

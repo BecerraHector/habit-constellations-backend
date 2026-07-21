@@ -7,6 +7,7 @@ import com.constellations.habits.domain.social.Friendship;
 import com.constellations.habits.domain.social.FriendshipStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +61,12 @@ class JpaFriendshipRepository implements FriendshipRepository {
     @Override
     public void delete(UUID friendshipId) {
         delegate.deleteById(friendshipId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllInvolving(UUID userId) {
+        delegate.deleteAllInvolving(userId);
     }
 
     private static List<Friendship> map(List<FriendshipEntity> entities) {

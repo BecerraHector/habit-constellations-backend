@@ -23,4 +23,11 @@ public interface HabitRepository {
     List<Habit> findActiveByOwners(Collection<UUID> ownerIds);
 
     List<Habit> findAllByOwner(UUID ownerId);
+
+    /**
+     * Borrado real, con sus registros. Solo se usa al dar de baja una cuenta y unicamente
+     * sobre habitos que no alimentaban ninguna galaxia: los que si lo hacian se anonimizan
+     * en lugar de borrarse, porque el brillo pasado de otras personas depende de ellos.
+     */
+    void deleteAll(Collection<UUID> habitIds);
 }

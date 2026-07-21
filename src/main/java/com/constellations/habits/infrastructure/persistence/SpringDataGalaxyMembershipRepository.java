@@ -26,6 +26,8 @@ interface SpringDataGalaxyMembershipRepository
 
     List<GalaxyMembershipEntity> findByHabitIdAndLeftOnIsNull(UUID habitId);
 
+    List<GalaxyMembershipEntity> findByUserId(UUID userId);
+
     @Query("""
             SELECT m.galaxyId, COUNT(m.id)
             FROM GalaxyMembershipEntity m

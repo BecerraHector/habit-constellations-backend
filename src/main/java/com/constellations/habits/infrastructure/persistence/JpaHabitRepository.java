@@ -3,6 +3,7 @@ package com.constellations.habits.infrastructure.persistence;
 import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.domain.habit.Habit;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -50,6 +51,16 @@ class JpaHabitRepository implements HabitRepository {
         return delegate.findByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
                 .map(JpaHabitRepository::toDomain)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteAll(Collection<UUID> habitIds) {
+        if (habitIds.isEmpty()) {
+            return;
+        }
+        // Los logs caen por la clave foranea ON DELETE CASCADE de la migracion V1.
+        delegate.deleteAllByIdInBatch(habitIds);
     }
 
     private static HabitEntity toEntity(Habit habit) {

@@ -104,6 +104,7 @@ propio *antes* de construir encima, en lugar de al terminar.
 - **El brillo en galaxias muy concurridas** deja de ser presión de grupo y pasa a ser una
   estadística. Está explicado en el README; la salida es filtrar el mapa a los amigos que
   hay dentro del grupo, y las amistades ya existen.
-- **Un usuario no puede borrar su cuenta.** Las claves foráneas ya están en `ON DELETE
-  CASCADE`, así que el esquema aguanta; falta decidir qué pasa con las galaxias que creó y
-  con el brillo pasado de los días en que sí cumplió.
+- **Una galaxia puede quedarse sin ningún miembro** si todos la abandonan o se dan de baja.
+  Hoy simplemente se queda a oscuras y sigue apareciendo en el catálogo. Habría que
+  decidir si se archiva sola, si se ofrece a quien la descubra, o si se deja tal cual como
+  registro de algo que existió.

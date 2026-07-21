@@ -15,8 +15,9 @@ import java.util.UUID;
  * entero cada vez que alguien abandona.
  *
  * @param joinedOn fecha local del usuario al unirse; el primer dia que pesa en el brillo
- * @param leftOn   fecha local al salir. Excluyente: el dia que te vas ya no cuentas,
- *                 para no ensombrecerlo con una ausencia de la que ya no formas parte
+ * @param leftOn   fecha local al salir. Ese dia solo cuentas si llegaste a cumplir: si no
+ *                 lo hiciste, tu ausencia no debe ensombrecer un dia del que ya no formas
+ *                 parte; si lo hiciste, marcharte no puede borrar el esfuerzo ya hecho
  */
 public record GalaxyMembership(
         UUID id,
@@ -50,9 +51,23 @@ public record GalaxyMembership(
         return leftOn == null;
     }
 
-    /** Si esta persona pesaba en el brillo del dia indicado. */
+    /**
+     * Si esta persona pesaba en el brillo del dia indicado, sin contar el dia de salida.
+     *
+     * <p>Para el dia de salida hace falta saber ademas si cumplio: ver
+     * {@link #wasMemberOn(LocalDate)} y {@link #isLeavingOn(LocalDate)}.
+     */
     public boolean isActiveOn(LocalDate day) {
         return !day.isBefore(joinedOn) && (leftOn == null || day.isBefore(leftOn));
+    }
+
+    /** Pertenecio ese dia, incluido el de la salida. */
+    public boolean wasMemberOn(LocalDate day) {
+        return !day.isBefore(joinedOn) && (leftOn == null || !day.isAfter(leftOn));
+    }
+
+    public boolean isLeavingOn(LocalDate day) {
+        return day.equals(leftOn);
     }
 
     public GalaxyMembership leave(LocalDate today, Instant now) {

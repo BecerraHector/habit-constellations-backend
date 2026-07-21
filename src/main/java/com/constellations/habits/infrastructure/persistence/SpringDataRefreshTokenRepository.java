@@ -23,4 +23,8 @@ interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshTokenEnt
             WHERE t.userId = :userId AND t.revokedAt IS NULL
             """)
     int revokeAllForUser(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM RefreshTokenEntity t WHERE t.userId = :userId")
+    int deleteAllForUser(@Param("userId") UUID userId);
 }

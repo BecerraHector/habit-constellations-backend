@@ -5,6 +5,7 @@ import com.constellations.habits.application.user.RegisterUserCommand;
 import com.constellations.habits.application.user.UserAccountService;
 import com.constellations.habits.infrastructure.security.AuthenticatedUserId;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.LoginRequest;
+import com.constellations.habits.infrastructure.web.dto.AuthDtos.DeleteAccountRequest;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.RefreshRequest;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.RegisterRequest;
 import com.constellations.habits.infrastructure.web.dto.AuthDtos.TokenResponse;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -62,6 +64,19 @@ class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void logout(@Valid @RequestBody RefreshRequest request) {
         accounts.logout(request.refreshToken());
+    }
+
+    /**
+     * Da de baja la cuenta. Los habitos privados desaparecen; las estrellas que este
+     * usuario aporto a una galaxia se conservan como recuento anonimo, porque el mapa de
+     * los demas no deberia reescribirse porque alguien se vaya.
+     */
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteAccount(
+            @AuthenticationPrincipal AuthenticatedUserId principal,
+            @Valid @RequestBody DeleteAccountRequest request) {
+        accounts.deleteAccount(principal.value(), request.password());
     }
 
     /** Quien soy: util para que el cliente compruebe que su token sigue vivo. */

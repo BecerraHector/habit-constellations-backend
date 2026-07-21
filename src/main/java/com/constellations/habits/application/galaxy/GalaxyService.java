@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -140,6 +141,28 @@ public class GalaxyService {
                 .forEach(membership -> memberships.save(membership.leave(today, now))));
     }
 
+    /**
+     * Saca a un usuario de todas sus galaxias al darse de baja y dice que habitos suyos
+     * alimentaron alguna vez un mapa.
+     *
+     * <p>Las pertenencias se cierran, no se borran: desde hoy la galaxia deja de esperar
+     * a esta persona —no cuenta en el denominador y su ausencia no oscurece nada—, pero
+     * los dias que si cumplio siguen valiendo lo que valieron.
+     *
+     * @return los habitos que no se pueden borrar porque el brillo de otros depende de
+     *         sus registros
+     */
+    public Set<UUID> releaseAllMembershipsOf(UUID userId, LocalDate today) {
+        Instant now = clock.instant();
+        List<GalaxyMembership> history = memberships.findAllByUser(userId);
+
+        transaction.run(() -> history.stream()
+                .filter(GalaxyMembership::isActive)
+                .forEach(membership -> memberships.save(membership.leave(today, now))));
+
+        return history.stream().map(GalaxyMembership::habitId).collect(Collectors.toSet());
+    }
+
     public List<GalaxyView> listMine(UUID userId) {
         List<GalaxyMembership> mine = memberships.findActiveByUser(userId);
         if (mine.isEmpty()) {
@@ -232,15 +255,18 @@ public class GalaxyService {
     public GalaxyDayDetail dayDetail(UUID galaxyId, LocalDate date) {
         requireGalaxy(galaxyId);
 
-        List<GalaxyMembership> onThatDay = memberships.findAllByGalaxy(galaxyId).stream()
-                .filter(membership -> membership.isActiveOn(date))
+        List<GalaxyMembership> history = memberships.findAllByGalaxy(galaxyId);
+        Map<UUID, Set<LocalDate>> completions = completionsOf(history, date, date);
+
+        // Misma regla que el mapa, tomada del dominio: si se aplicara aparte, la lista
+        // de nombres podria dejar de cuadrar con la cifra que pinta la estrella.
+        List<GalaxyMembership> onThatDay = history.stream()
+                .filter(membership -> LuminosityCalculator.countsOn(
+                        membership, date, completedOn(membership, date, completions)))
                 .toList();
 
-        Map<UUID, Set<LocalDate>> completions = completionsOf(onThatDay, date, date);
         List<GalaxyMembership> completed = onThatDay.stream()
-                .filter(membership -> completions
-                        .getOrDefault(membership.habitId(), Set.of())
-                        .contains(date))
+                .filter(membership -> completedOn(membership, date, completions))
                 .toList();
 
         List<String> names = memberViews(completed).stream()
@@ -253,6 +279,11 @@ public class GalaxyService {
                 completed.size(),
                 Luminosity.levelOf(completed.size(), onThatDay.size()),
                 names);
+    }
+
+    private static boolean completedOn(
+            GalaxyMembership membership, LocalDate date, Map<UUID, Set<LocalDate>> completions) {
+        return completions.getOrDefault(membership.habitId(), Set.of()).contains(date);
     }
 
     private GalaxyMembership enroll(

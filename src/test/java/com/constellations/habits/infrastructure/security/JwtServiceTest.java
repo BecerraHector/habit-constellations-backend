@@ -20,7 +20,7 @@ class JwtServiceTest {
 
     private final User user = new User(
             UUID.randomUUID(), "orion@constelaciones.test", "hash", "Orion",
-            ZoneId.of("America/Lima"), new InviteCode("RSTN2345"), NOW);
+            ZoneId.of("America/Lima"), new InviteCode("RSTN2345"), NOW, null);
 
     private JwtService serviceAt(Instant instant) {
         var properties = new JwtProperties(

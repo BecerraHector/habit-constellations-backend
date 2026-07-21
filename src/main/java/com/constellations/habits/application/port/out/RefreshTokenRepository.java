@@ -18,4 +18,7 @@ public interface RefreshTokenRepository {
      * token ya usado vuelve a presentarse: si eso pasa, alguien tiene una copia.
      */
     int revokeAllForUser(UUID userId, Instant now);
+
+    /** Al darse de baja no hay nada que auditar: las sesiones se borran, no se marcan. */
+    void deleteAllForUser(UUID userId);
 }

@@ -48,6 +48,12 @@ public final class AuthDtos {
     public record RefreshRequest(@NotBlank String refreshToken) {}
 
     /**
+     * Darse de baja exige la contrasena. Es irreversible, y un token robado no deberia
+     * bastar para borrarle la vida a nadie.
+     */
+    public record DeleteAccountRequest(@NotBlank String password) {}
+
+    /**
      * El token de refresco se devuelve en el cuerpo y no en una cookie porque la API es
      * stateless y sirve tambien a clientes que no son navegadores. El cliente web deberia
      * guardarlo donde no lo alcance un script de terceros.

@@ -38,4 +38,8 @@ class UserEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    /** No nulo solo en las lapidas: la fila sobrevive, la persona no. */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

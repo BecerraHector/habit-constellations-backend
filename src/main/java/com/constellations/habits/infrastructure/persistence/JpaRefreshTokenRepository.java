@@ -34,6 +34,12 @@ class JpaRefreshTokenRepository implements RefreshTokenRepository {
         return delegate.revokeAllForUser(userId, now);
     }
 
+    @Override
+    @Transactional
+    public void deleteAllForUser(UUID userId) {
+        delegate.deleteAllForUser(userId);
+    }
+
     private static RefreshTokenEntity toEntity(RefreshToken token) {
         var entity = new RefreshTokenEntity();
         entity.setId(token.id());

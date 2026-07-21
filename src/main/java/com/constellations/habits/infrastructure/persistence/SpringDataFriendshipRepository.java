@@ -4,6 +4,7 @@ import com.constellations.habits.domain.social.FriendshipStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -37,4 +38,8 @@ interface SpringDataFriendshipRepository extends JpaRepository<FriendshipEntity,
 
     List<FriendshipEntity> findByRequesterIdAndStatusOrderByCreatedAtDesc(
             UUID requesterId, FriendshipStatus status);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM FriendshipEntity f WHERE f.requesterId = :userId OR f.addresseeId = :userId")
+    int deleteAllInvolving(@Param("userId") UUID userId);
 }

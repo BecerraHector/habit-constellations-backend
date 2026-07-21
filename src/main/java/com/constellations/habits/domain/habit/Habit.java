@@ -51,6 +51,20 @@ public record Habit(
         return new Habit(id, ownerId, name, description, createdAt, now);
     }
 
+    /**
+     * Deja el habito sin nombre y archivado, para cuando su dueno borra la cuenta pero
+     * sus registros alimentan el mapa de una galaxia.
+     *
+     * <p>El nombre es lo unico personal que hay aqui —"Terapia los martes" dice mucho de
+     * alguien—; una fila {@code (habito, fecha)} sin el es un recuento anonimo. A
+     * diferencia de {@link #rename}, funciona tambien sobre un habito ya archivado:
+     * borrarse la cuenta no puede fallar porque algo estuviera archivado de antes.
+     */
+    public Habit anonymize(String placeholder, Instant now) {
+        return new Habit(
+                id, ownerId, placeholder, null, createdAt, archivedAt != null ? archivedAt : now);
+    }
+
     private void requireActive() {
         if (isArchived()) {
             throw new ArchivedHabitException(id);

@@ -27,6 +27,13 @@ public interface GalaxyMembershipRepository {
 
     List<GalaxyMembership> findActiveByUser(UUID userId);
 
+    /**
+     * Historial completo del usuario, incluidas las galaxias que ya abandono. Al darse de
+     * baja hace falta para saber que habitos suyos alimentaron alguna vez un mapa y por
+     * tanto no se pueden borrar.
+     */
+    List<GalaxyMembership> findAllByUser(UUID userId);
+
     /** Version por lotes para no contar miembros galaxia a galaxia en los listados. */
     Map<UUID, Integer> countActiveByGalaxies(Collection<UUID> galaxyIds);
 

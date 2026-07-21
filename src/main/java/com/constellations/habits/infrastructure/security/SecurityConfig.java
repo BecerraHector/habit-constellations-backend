@@ -42,7 +42,16 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        // Se enumeran en vez de abrir /auth/** entero: bajo ese prefijo
+                        // tambien viven /me y la baja de cuenta, que exigen sesion. Un
+                        // comodin aqui los dejaba pasar sin token y el principal llegaba
+                        // nulo, con lo que un 401 limpio se convertia en un 500.
+                        .requestMatchers(
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout")
+                        .permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         // La documentacion describe el contrato, no expone datos.
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")

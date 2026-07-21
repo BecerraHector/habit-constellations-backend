@@ -54,6 +54,11 @@ class JpaGalaxyMembershipRepository implements GalaxyMembershipRepository {
     }
 
     @Override
+    public List<GalaxyMembership> findAllByUser(UUID userId) {
+        return map(delegate.findByUserId(userId));
+    }
+
+    @Override
     public Map<UUID, Integer> countActiveByGalaxies(Collection<UUID> galaxyIds) {
         if (galaxyIds.isEmpty()) {
             return Map.of();

@@ -100,7 +100,7 @@ class LuminosityCalculatorTest {
 
     @Test
     void las_estrellas_de_quien_ya_no_esta_no_las_hereda_el_grupo() {
-        var seFue = member(TODAY.minusDays(5), TODAY);
+        var seFue = member(TODAY.minusDays(5), TODAY.minusDays(1));
 
         // Sigue con el habito por su cuenta y lo marca hoy, ya fuera de la galaxia.
         GalaxyMap map = LuminosityCalculator.map(
@@ -110,6 +110,24 @@ class LuminosityCalculatorTest {
         assertThat(day.activeMembers()).isZero();
         assertThat(day.completions()).isZero();
         assertThat(day.level()).isEqualTo(Luminosity.DARK);
+    }
+
+    @Test
+    void quien_cumple_y_luego_se_va_conserva_la_estrella_de_ese_dia() {
+        var seQueda = member(TODAY.minusDays(5), null);
+        var seVa = member(TODAY.minusDays(5), TODAY);
+
+        // Cumplio esta manana y se dio de baja por la tarde. Marcharse no puede borrar
+        // un esfuerzo que ya estaba hecho, ni repintar el dia de quien se queda.
+        GalaxyMap map = LuminosityCalculator.map(
+                List.of(seQueda, seVa),
+                Map.of(seQueda.habitId(), Set.of(TODAY), seVa.habitId(), Set.of(TODAY)),
+                TODAY, TODAY);
+
+        GalaxyDay hoy = map.days().get(0);
+        assertThat(hoy.activeMembers()).isEqualTo(2);
+        assertThat(hoy.completions()).isEqualTo(2);
+        assertThat(hoy.isPerfect()).isTrue();
     }
 
     @Test

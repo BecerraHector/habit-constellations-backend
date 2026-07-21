@@ -48,7 +48,8 @@ class JpaUserRepository implements UserRepository {
 
     @Override
     public Optional<User> findByInviteCode(String inviteCode) {
-        return delegate.findByInviteCode(inviteCode).map(JpaUserRepository::toDomain);
+        return delegate.findByInviteCodeAndDeletedAtIsNull(inviteCode)
+                .map(JpaUserRepository::toDomain);
     }
 
     @Override
@@ -65,6 +66,7 @@ class JpaUserRepository implements UserRepository {
         entity.setZoneId(user.zoneId().getId());
         entity.setInviteCode(user.inviteCode().value());
         entity.setCreatedAt(user.createdAt());
+        entity.setDeletedAt(user.deletedAt());
         return entity;
     }
 
@@ -76,6 +78,7 @@ class JpaUserRepository implements UserRepository {
                 entity.getDisplayName(),
                 ZoneId.of(entity.getZoneId()),
                 new InviteCode(entity.getInviteCode()),
-                entity.getCreatedAt());
+                entity.getCreatedAt(),
+                entity.getDeletedAt());
     }
 }

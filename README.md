@@ -270,6 +270,7 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `POST`   | `/api/v1/auth/refresh`            | Renovar el acceso (rota el de refresco)    |
 | `POST`   | `/api/v1/auth/logout`             | Cerrar sesión (revoca el de refresco)      |
 | `GET`    | `/api/v1/auth/me`                 | Datos del usuario autenticado              |
+| `DELETE` | `/api/v1/auth/me`                 | Dar de baja la cuenta (pide la contraseña) |
 | `GET`    | `/api/v1/habits`                  | Hábitos activos con su progreso            |
 | `POST`   | `/api/v1/habits`                  | Crear hábito                               |
 | `GET`    | `/api/v1/habits/{id}`             | Un hábito con su progreso                  |
@@ -347,6 +348,29 @@ Cada renovación **rota** el token: el presentado se revoca y se entrega otro. S
 ya revocado vuelve a presentarse, se cierran **todas** las sesiones de ese usuario. Que
 aparezca dos veces significa que existe una copia, y no hay forma de saber cuál de las
 dos partes es la legítima.
+
+## Baja de cuenta
+
+Darse de baja saca a la persona de todas sus galaxias con la fecha de hoy. Desde ese
+momento el grupo **no la espera**: ni cuenta en el denominador ni su ausencia oscurece
+ningún día.
+
+Lo que **no** se borra son sus aportaciones anteriores. Si se eliminaran sus registros, un
+martes que fue «3 de 3» se repintaría como «2 de 3» en la pantalla de las otras dos
+personas: irse no puede reescribir el pasado de quien no pidió nada. Por eso la fila del
+usuario sobrevive como **lápida anónima** —sin email, sin contraseña utilizable y sin
+código de invitación, con el nombre «Cuenta eliminada»— y sus hábitos enlazados a una
+galaxia conservan los registros pero pierden el nombre. «Terapia los martes» dice mucho de
+alguien; una fila `(hábito, fecha)` sin nombre es un recuento anónimo.
+
+Los hábitos que **no** alimentaban ninguna galaxia se borran de verdad, con sus registros:
+nadie más los vio nunca. Las amistades y las sesiones también se borran del todo, y el
+código de invitación deja de encontrarse, de modo que nadie puede enviar solicitudes a una
+cuenta que ya no existe.
+
+El día de la salida es el único ambiguo, y se resuelve a favor de quien se va: si llegó a
+cumplir esa mañana, su estrella sigue contando; si no, no se le cuenta, para que su
+ausencia no ensombrezca un día del que ya no formaba parte.
 
 ## Decisiones técnicas
 

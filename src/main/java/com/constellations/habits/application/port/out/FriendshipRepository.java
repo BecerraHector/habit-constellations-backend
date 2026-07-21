@@ -33,4 +33,11 @@ public interface FriendshipRepository {
     List<Friendship> findPendingSentBy(UUID userId);
 
     void delete(UUID friendshipId);
+
+    /**
+     * Borra toda relacion en la que participe el usuario. Al darse de baja no queda nada
+     * que conservar: una amistad con una lapida no significa nada, y mantenerla dejaria
+     * un nombre vacio en el panel del otro.
+     */
+    void deleteAllInvolving(UUID userId);
 }
