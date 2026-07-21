@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: habit-tracker-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-habits}
+      POSTGRES_USER: ${POSTGRES_USER:-habits}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-habits}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-habits} -d ${POSTGRES_DB:-habits}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: habit-tracker-app
+    profiles: ["full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-habits}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-habits}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-habits}
+      HABITS_SECURITY_JWT_SECRET: ${HABITS_SECURITY_JWT_SECRET}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  postgres-data:

@@ -1,0 +1,21 @@
+# Configuracion de Gitleaks. Parte del set de reglas por defecto y anade lo especifico
+# de este proyecto.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "habits-jwt-secret"
+description = "Clave de firmado JWT commiteada"
+regex = '''(?i)HABITS_SECURITY_JWT_SECRET\s*[:=]\s*["']?[A-Za-z0-9+/=_-]{16,}'''
+tags = ["jwt", "secret"]
+
+[allowlist]
+description = "Valores de ejemplo y claves descartables de test"
+paths = [
+    '''\.env\.example$''',
+    '''src/test/resources/application\.yml$''',
+]
+regexes = [
+    # Credenciales por defecto del Postgres local de docker-compose: no son secretos.
+    '''POSTGRES_PASSWORD:-habits''',
+]
