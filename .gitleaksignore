@@ -1,0 +1,11 @@
+# Hallazgos revisados uno a uno y aceptados. Cada linea es la huella de una deteccion
+# concreta, no una exclusion por patron: si manana aparece otra cadena sospechosa en el
+# mismo fichero, gitleaks volvera a avisar. Esa es justo la idea — silenciar el fichero
+# entero convertiria el escaneo en decorativo.
+
+# Clave de firmado usada solo por JwtServiceTest, escrita en claro a proposito para que
+# el test sea legible y reproducible. No abre nada: la aplicacion real exige
+# HABITS_SECURITY_JWT_SECRET por entorno y se niega a arrancar sin el, sin ningun valor
+# por defecto que pudiera heredar este. Gitleaks la marca por su nombre (SECRET) y su
+# entropia, que es exactamente lo que deberia hacer sin conocer el contexto.
+7f029a483aee36419866776e0b4fc2c77db7de1d:src/test/java/com/constellations/habits/infrastructure/security/JwtServiceTest.java:generic-api-key:18
