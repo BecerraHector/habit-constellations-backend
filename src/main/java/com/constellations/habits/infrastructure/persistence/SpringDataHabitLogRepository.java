@@ -21,6 +21,17 @@ interface SpringDataHabitLogRepository extends JpaRepository<HabitLogEntity, UUI
             """)
     List<Object[]> findLogDatesForHabits(@Param("habitIds") List<UUID> habitIds);
 
+    /** Misma proyeccion, acotada a la ventana que el mapa de brillo va a pintar. */
+    @Query("""
+            SELECT l.habitId, l.logDate FROM HabitLogEntity l
+            WHERE l.habitId IN :habitIds AND l.logDate BETWEEN :from AND :to
+            ORDER BY l.logDate
+            """)
+    List<Object[]> findLogDatesForHabitsBetween(
+            @Param("habitIds") List<UUID> habitIds,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
     boolean existsByHabitIdAndLogDate(UUID habitId, LocalDate logDate);
 
     long deleteByHabitIdAndLogDate(UUID habitId, LocalDate logDate);

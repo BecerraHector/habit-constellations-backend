@@ -33,6 +33,17 @@ public interface HabitLogRepository {
      */
     Map<UUID, List<LocalDate>> findDatesByHabits(List<UUID> habitIds);
 
+    /**
+     * Igual que la anterior, pero acotada a una ventana.
+     *
+     * <p>El mapa de brillo de una galaxia solo mira los ultimos dias, asi que traer el
+     * historial completo de cada miembro es trabajo tirado: con un grupo grande y anos
+     * de uso, la mayor parte de lo leido se descarta al instante. El filtro va en SQL,
+     * donde ademas puede aprovechar el indice.
+     */
+    Map<UUID, List<LocalDate>> findDatesByHabitsBetween(
+            List<UUID> habitIds, LocalDate from, LocalDate to);
+
     /** @return true si habia un log que borrar. */
     boolean deleteByHabitAndDate(UUID habitId, LocalDate logDate);
 }

@@ -56,7 +56,21 @@ class JpaHabitLogRepository implements HabitLogRepository {
         if (habitIds.isEmpty()) {
             return Map.of();
         }
-        return delegate.findLogDatesForHabits(habitIds).stream()
+        return group(delegate.findLogDatesForHabits(habitIds));
+    }
+
+    @Override
+    public Map<UUID, List<LocalDate>> findDatesByHabitsBetween(
+            List<UUID> habitIds, LocalDate from, LocalDate to) {
+
+        if (habitIds.isEmpty() || from == null || to == null || to.isBefore(from)) {
+            return Map.of();
+        }
+        return group(delegate.findLogDatesForHabitsBetween(habitIds, from, to));
+    }
+
+    private static Map<UUID, List<LocalDate>> group(List<Object[]> rows) {
+        return rows.stream()
                 .collect(Collectors.groupingBy(
                         row -> (UUID) row[0],
                         Collectors.mapping(row -> (LocalDate) row[1], Collectors.toList())));
