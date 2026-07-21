@@ -21,6 +21,7 @@ public record User(
         String passwordHash,
         String displayName,
         ZoneId zoneId,
+        InviteCode inviteCode,
         Instant createdAt) {
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s.]+\\.[^@\\s]+$");
@@ -31,12 +32,24 @@ public record User(
         ValidationException.requireText(passwordHash, "passwordHash", 255);
         displayName = ValidationException.requireText(displayName, "displayName", 60);
         ValidationException.requirePresent(zoneId, "zoneId");
+        ValidationException.requirePresent(inviteCode, "inviteCode");
         ValidationException.requirePresent(createdAt, "createdAt");
     }
 
     public static User register(
-            String email, String passwordHash, String displayName, ZoneId zoneId, Instant now) {
-        return new User(UUID.randomUUID(), email, passwordHash, displayName, zoneId, now);
+            String email,
+            String passwordHash,
+            String displayName,
+            ZoneId zoneId,
+            InviteCode inviteCode,
+            Instant now) {
+        return new User(
+                UUID.randomUUID(), email, passwordHash, displayName, zoneId, inviteCode, now);
+    }
+
+    /** Se usa cuando el codigo se ha difundido mas de la cuenta y hay que invalidarlo. */
+    public User withInviteCode(InviteCode newCode) {
+        return new User(id, email, passwordHash, displayName, zoneId, newCode, createdAt);
     }
 
     /** El "hoy" del usuario, que puede no coincidir con el del servidor. */
@@ -52,7 +65,10 @@ public record User(
         return value;
     }
 
-    /** Evita que el hash de la contrasena acabe en un log por accidente. */
+    /**
+     * Evita que el hash de la contrasena y el codigo de invitacion acaben en un log por
+     * accidente: el codigo es, de hecho, una credencial para contactar al usuario.
+     */
     @Override
     public String toString() {
         return "User[id=%s, email=%s, displayName=%s, zoneId=%s]"
