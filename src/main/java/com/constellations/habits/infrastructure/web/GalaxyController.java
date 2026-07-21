@@ -1,14 +1,17 @@
 package com.constellations.habits.infrastructure.web;
 
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.galaxy.CreateGalaxyCommand;
 import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.infrastructure.security.AuthenticatedUserId;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.CreateGalaxyBody;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.GalaxyDayDetailResponse;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.GalaxyDetailResponse;
+import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.GalaxyMemberResponse;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.GalaxyResponse;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.JoinGalaxyBody;
 import com.constellations.habits.infrastructure.web.dto.GalaxyDtos.ThemeResponse;
+import com.constellations.habits.infrastructure.web.dto.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -88,6 +91,18 @@ class GalaxyController {
             @RequestParam(required = false) Integer days) {
 
         return GalaxyDetailResponse.from(galaxies.get(principal.value(), galaxyId, days));
+    }
+
+    /** Quienes habitan la galaxia. Aparte del detalle porque pueden ser cientos. */
+    @GetMapping("/{galaxyId}/members")
+    PageResponse<GalaxyMemberResponse> members(
+            @PathVariable UUID galaxyId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+
+        return PageResponse.of(
+                galaxies.listMembers(galaxyId, PageQuery.of(page, size)),
+                GalaxyMemberResponse::from);
     }
 
     @GetMapping("/{galaxyId}/days/{date}")

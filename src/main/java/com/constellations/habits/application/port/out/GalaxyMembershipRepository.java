@@ -1,5 +1,7 @@
 package com.constellations.habits.application.port.out;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.domain.galaxy.GalaxyMembership;
 
 import java.util.Collection;
@@ -19,6 +21,9 @@ public interface GalaxyMembershipRepository {
      * el mapa necesita saber cuantos miembros habia cada dia para calcular el brillo.
      */
     List<GalaxyMembership> findAllByGalaxy(UUID galaxyId);
+
+    /** Miembros vivos por tramos, para no volcar cientos de nombres de una vez. */
+    Page<GalaxyMembership> findActiveByGalaxy(UUID galaxyId, PageQuery query);
 
     List<GalaxyMembership> findActiveByUser(UUID userId);
 

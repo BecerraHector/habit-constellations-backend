@@ -1,7 +1,10 @@
 package com.constellations.habits.infrastructure.persistence;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.port.out.GalaxyMembershipRepository;
 import com.constellations.habits.domain.galaxy.GalaxyMembership;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -34,6 +37,15 @@ class JpaGalaxyMembershipRepository implements GalaxyMembershipRepository {
     @Override
     public List<GalaxyMembership> findAllByGalaxy(UUID galaxyId) {
         return map(delegate.findByGalaxyId(galaxyId));
+    }
+
+    @Override
+    public Page<GalaxyMembership> findActiveByGalaxy(UUID galaxyId, PageQuery query) {
+        var found = delegate.findByGalaxyIdAndLeftOnIsNullOrderByJoinedOnAsc(
+                galaxyId, PageRequest.of(query.page(), query.size()));
+
+        return new Page<>(
+                map(found.getContent()), query.page(), query.size(), found.getTotalElements());
     }
 
     @Override

@@ -18,6 +18,10 @@ interface SpringDataGalaxyMembershipRepository
     /** Historial completo: el mapa necesita tambien a quienes ya se fueron. */
     List<GalaxyMembershipEntity> findByGalaxyId(UUID galaxyId);
 
+    org.springframework.data.domain.Page<GalaxyMembershipEntity>
+            findByGalaxyIdAndLeftOnIsNullOrderByJoinedOnAsc(
+                    UUID galaxyId, org.springframework.data.domain.Pageable pageable);
+
     List<GalaxyMembershipEntity> findByUserIdAndLeftOnIsNull(UUID userId);
 
     List<GalaxyMembershipEntity> findByHabitIdAndLeftOnIsNull(UUID habitId);

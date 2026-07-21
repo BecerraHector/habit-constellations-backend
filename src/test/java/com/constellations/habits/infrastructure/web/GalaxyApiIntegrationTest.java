@@ -142,10 +142,10 @@ class GalaxyApiIntegrationTest {
         createHabit(bruno.token(), "Terapia los martes");
         joinAndGetHabit(ana.token(), galaxyId);
 
-        String body = mvc.perform(get("/api/v1/galaxies/" + galaxyId)
+        String body = mvc.perform(get("/api/v1/galaxies/" + galaxyId + "/members")
                         .header("Authorization", "Bearer " + ana.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.members.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(2))
                 .andReturn().getResponse().getContentAsString();
 
         // Unirse a un grupo abierto expone el nombre visible y el habito compartido.
@@ -280,6 +280,46 @@ class GalaxyApiIntegrationTest {
                         .content("""
                                 {"habitId":"%s"}""".formatted(ajeno)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void la_lista_de_miembros_se_pagina() throws Exception {
+        var ana = registerUser("pagina-a");
+        var bruno = registerUser("pagina-b");
+        var carla = registerUser("pagina-c");
+
+        String galaxyId = createGalaxy(ana.token(), "Multitud", "multitud", null);
+        joinAndGetHabit(bruno.token(), galaxyId);
+        joinAndGetHabit(carla.token(), galaxyId);
+
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId + "/members")
+                        .param("size", "2")
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.hasNext").value(true));
+
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId + "/members")
+                        .param("page", "1").param("size", "2")
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.hasNext").value(false));
+    }
+
+    @Test
+    void un_tamano_de_pagina_desmedido_se_recorta() throws Exception {
+        var ana = registerUser("desmedida");
+        String galaxyId = createGalaxy(ana.token(), "Tope", "tope", null);
+
+        // El limite se aplica en el propio PageQuery, no en el controlador: asi no hay
+        // forma de pedir un volcado entero desde ningun endpoint.
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId + "/members")
+                        .param("size", "100000")
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(100));
     }
 
     @Test

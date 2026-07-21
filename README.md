@@ -289,7 +289,7 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `GET`    | `/api/v1/friend-requests/sent`             | Solicitudes enviadas sin respuesta   |
 | `POST`   | `/api/v1/friend-requests/{id}/accept`      | Aceptar (solo el destinatario)       |
 | `POST`   | `/api/v1/friend-requests/{id}/decline`     | Rechazar (solo el destinatario)      |
-| `GET`    | `/api/v1/friends`                          | Amigos con su progreso agregado      |
+| `GET`    | `/api/v1/friends?page=&size=`              | Amigos con su progreso (paginado)    |
 | `DELETE` | `/api/v1/friends/{userId}`                 | Eliminar la amistad                  |
 
 ### Constelaciones compartidas
@@ -300,13 +300,21 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `GET`    | `/api/v1/galaxies/discover?theme=`            | Galaxias abiertas a las que unirse     |
 | `POST`   | `/api/v1/galaxies`                            | Crear una (mete dentro al creador)     |
 | `GET`    | `/api/v1/galaxies`                            | Las tuyas                              |
-| `GET`    | `/api/v1/galaxies/{id}?days=30`               | Mapa de brillo y miembros              |
+| `GET`    | `/api/v1/galaxies/{id}?days=30`               | Mapa de brillo                         |
+| `GET`    | `/api/v1/galaxies/{id}/members?page=&size=`   | Quiénes la habitan (paginado)          |
 | `GET`    | `/api/v1/galaxies/{id}/days/{fecha}`          | Quiénes iluminaron ese día             |
 | `POST`   | `/api/v1/galaxies/{id}/members`               | Unirse enlazando un hábito propio      |
 | `DELETE` | `/api/v1/galaxies/{id}/members/me`            | Salir (el hábito se conserva)          |
 
 Un hábito ajeno responde `404` y nunca `403`: distinguir ambos casos filtraría qué
 identificadores existen. Lo mismo aplica a las solicitudes de amistad de terceros.
+
+Los listados que pueden crecer sin que el usuario lo controle —amigos y miembros de una
+galaxia— devuelven `{content, page, size, totalElements, totalPages, hasNext}`. El tamaño
+máximo se acota en la propia petición de página, no en el controlador, para que ningún
+endpoint nuevo pueda saltárselo por olvido. Los hábitos propios y las galaxias propias no
+se paginan: su tamaño lo fija el usuario con sus acciones, y el panel siempre los quiere
+todos.
 
 ### Ejemplo
 
@@ -379,3 +387,7 @@ dos partes es la legítima.
 | Motor de rachas y constelaciones                | Completo  |
 | Amistades, códigos de invitación y panel social | Completo  |
 | Constelaciones compartidas y mapa de brillo     | Completo  |
+
+Las carencias conocidas están anotadas en [PENDIENTES.md](PENDIENTES.md), con el motivo de
+cada una. Las dos más importantes —límite de intentos en el login y limpieza de sesiones
+caducadas— deberían cerrarse antes de exponer la API en un servidor público.

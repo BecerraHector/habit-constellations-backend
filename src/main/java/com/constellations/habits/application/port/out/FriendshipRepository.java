@@ -1,5 +1,7 @@
 package com.constellations.habits.application.port.out;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.domain.social.Friendship;
 
 import java.util.List;
@@ -15,8 +17,14 @@ public interface FriendshipRepository {
     /** La relacion entre dos usuarios, exista en el sentido que exista. */
     Optional<Friendship> findBetween(UUID userA, UUID userB);
 
-    /** Amistades aceptadas en las que participa el usuario, sea quien sea el solicitante. */
-    List<Friendship> findAcceptedFor(UUID userId);
+    /**
+     * Amistades aceptadas en las que participa el usuario, sea quien sea el solicitante.
+     *
+     * <p>Paginado porque resolver cada amigo cuesta sus habitos y sus logs: sin tope, el
+     * panel de alguien muy sociable acabaria leyendo el historial de media base de datos
+     * en una sola peticion.
+     */
+    Page<Friendship> findAcceptedFor(UUID userId, PageQuery query);
 
     /** Solicitudes que el usuario ha recibido y aun no ha respondido. */
     List<Friendship> findPendingReceivedBy(UUID userId);

@@ -2,7 +2,11 @@ package com.constellations.habits.application.galaxy;
 
 import com.constellations.habits.domain.galaxy.GalaxyMap;
 
-import java.util.List;
-
-/** La galaxia con su mapa de brillo y quienes la habitan ahora mismo. */
-public record GalaxyDetail(GalaxyView galaxy, GalaxyMap map, List<GalaxyMemberView> members) {}
+/**
+ * La galaxia con su mapa de brillo.
+ *
+ * <p>Sin la lista de miembros a proposito: en una galaxia abierta puede tener cientos de
+ * nombres que ni caben en pantalla ni hacen falta para pintar el mapa. Se pide aparte y
+ * paginada.
+ */
+public record GalaxyDetail(GalaxyView galaxy, GalaxyMap map) {}

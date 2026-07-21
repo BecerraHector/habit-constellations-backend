@@ -52,18 +52,20 @@ class SocialApiIntegrationTest {
 
         // Antes de aceptar, nadie es amigo de nadie.
         mvc.perform(get("/api/v1/friends").header("Authorization", "Bearer " + ana.token()))
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.content.length()").value(0));
 
         accept(bruno.token(), requestId);
 
         mvc.perform(get("/api/v1/friends").header("Authorization", "Bearer " + ana.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].userId").value(bruno.id()));
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.hasNext").value(false))
+                .andExpect(jsonPath("$.content[0].userId").value(bruno.id()));
 
         // La amistad es simetrica: Bruno tambien ve a Ana.
         mvc.perform(get("/api/v1/friends").header("Authorization", "Bearer " + bruno.token()))
-                .andExpect(jsonPath("$[0].userId").value(ana.id()));
+                .andExpect(jsonPath("$.content[0].userId").value(ana.id()));
     }
 
     @Test
@@ -102,10 +104,10 @@ class SocialApiIntegrationTest {
         String body = mvc.perform(get("/api/v1/friends")
                         .header("Authorization", "Bearer " + ana.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].activeHabits").value(1))
-                .andExpect(jsonPath("$[0].bestCurrentStreak").value(1))
-                .andExpect(jsonPath("$[0].totalStars").value(1))
-                .andExpect(jsonPath("$[0].completedToday").value(1))
+                .andExpect(jsonPath("$.content[0].activeHabits").value(1))
+                .andExpect(jsonPath("$.content[0].bestCurrentStreak").value(1))
+                .andExpect(jsonPath("$.content[0].totalStars").value(1))
+                .andExpect(jsonPath("$.content[0].completedToday").value(1))
                 .andReturn().getResponse().getContentAsString();
 
         // Lo importante: el nombre del habito no aparece por ningun lado.
@@ -197,7 +199,7 @@ class SocialApiIntegrationTest {
                 .andExpect(status().isNoContent());
 
         mvc.perform(get("/api/v1/friends").header("Authorization", "Bearer " + ana.token()))
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.totalElements").value(0));
 
         // La relacion rechazada se conserva: no se puede insistir en bucle.
         mvc.perform(sendRequestBuilder(ana.token(), bruno.inviteCode()))
@@ -216,7 +218,7 @@ class SocialApiIntegrationTest {
                 .andExpect(status().isNoContent());
 
         mvc.perform(get("/api/v1/friends").header("Authorization", "Bearer " + bruno.token()))
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.totalElements").value(0));
 
         mvc.perform(sendRequestBuilder(ana.token(), bruno.inviteCode()))
                 .andExpect(status().isCreated());

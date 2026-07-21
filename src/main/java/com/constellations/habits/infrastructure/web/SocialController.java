@@ -1,5 +1,6 @@
 package com.constellations.habits.infrastructure.web;
 
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.application.port.out.UserRepository;
 import com.constellations.habits.application.social.FriendshipService;
@@ -7,6 +8,7 @@ import com.constellations.habits.infrastructure.security.AuthenticatedUserId;
 import com.constellations.habits.infrastructure.web.dto.SocialDtos.FriendRequestResponse;
 import com.constellations.habits.infrastructure.web.dto.SocialDtos.FriendResponse;
 import com.constellations.habits.infrastructure.web.dto.SocialDtos.InviteCodeResponse;
+import com.constellations.habits.infrastructure.web.dto.PageResponse;
 import com.constellations.habits.infrastructure.web.dto.SocialDtos.SendRequestBody;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -91,10 +94,14 @@ class SocialController {
     }
 
     @GetMapping("/friends")
-    List<FriendResponse> friends(@AuthenticationPrincipal AuthenticatedUserId principal) {
-        return friendships.listFriends(principal.value()).stream()
-                .map(FriendResponse::from)
-                .toList();
+    PageResponse<FriendResponse> friends(
+            @AuthenticationPrincipal AuthenticatedUserId principal,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+
+        return PageResponse.of(
+                friendships.listFriends(principal.value(), PageQuery.of(page, size)),
+                FriendResponse::from);
     }
 
     @DeleteMapping("/friends/{userId}")

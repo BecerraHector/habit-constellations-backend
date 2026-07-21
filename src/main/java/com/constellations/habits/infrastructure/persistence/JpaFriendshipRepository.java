@@ -1,8 +1,11 @@
 package com.constellations.habits.infrastructure.persistence;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.port.out.FriendshipRepository;
 import com.constellations.habits.domain.social.Friendship;
 import com.constellations.habits.domain.social.FriendshipStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,8 +37,12 @@ class JpaFriendshipRepository implements FriendshipRepository {
     }
 
     @Override
-    public List<Friendship> findAcceptedFor(UUID userId) {
-        return map(delegate.findByStatusInvolving(userId, FriendshipStatus.ACCEPTED));
+    public Page<Friendship> findAcceptedFor(UUID userId, PageQuery query) {
+        var found = delegate.findByStatusInvolving(
+                userId, FriendshipStatus.ACCEPTED, PageRequest.of(query.page(), query.size()));
+
+        return new Page<>(
+                map(found.getContent()), query.page(), query.size(), found.getTotalElements());
     }
 
     @Override

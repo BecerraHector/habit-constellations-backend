@@ -103,14 +103,12 @@ public final class GalaxyDtos {
         }
     }
 
-    public record GalaxyDetailResponse(
-            GalaxyResponse galaxy, GalaxyMapResponse map, List<GalaxyMemberResponse> members) {
+    /** Los miembros se piden en {@code /galaxies/&#123;id&#125;/members}, paginados. */
+    public record GalaxyDetailResponse(GalaxyResponse galaxy, GalaxyMapResponse map) {
 
         public static GalaxyDetailResponse from(GalaxyDetail detail) {
             return new GalaxyDetailResponse(
-                    GalaxyResponse.from(detail.galaxy()),
-                    GalaxyMapResponse.from(detail.map()),
-                    detail.members().stream().map(GalaxyMemberResponse::from).toList());
+                    GalaxyResponse.from(detail.galaxy()), GalaxyMapResponse.from(detail.map()));
         }
     }
 

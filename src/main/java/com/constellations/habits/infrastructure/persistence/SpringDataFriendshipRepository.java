@@ -1,6 +1,8 @@
 package com.constellations.habits.infrastructure.persistence;
 
 import com.constellations.habits.domain.social.FriendshipStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,8 +27,10 @@ interface SpringDataFriendshipRepository extends JpaRepository<FriendshipEntity,
               AND (f.requesterId = :userId OR f.addresseeId = :userId)
             ORDER BY f.respondedAt DESC
             """)
-    List<FriendshipEntity> findByStatusInvolving(
-            @Param("userId") UUID userId, @Param("status") FriendshipStatus status);
+    Page<FriendshipEntity> findByStatusInvolving(
+            @Param("userId") UUID userId,
+            @Param("status") FriendshipStatus status,
+            Pageable pageable);
 
     List<FriendshipEntity> findByAddresseeIdAndStatusOrderByCreatedAtDesc(
             UUID addresseeId, FriendshipStatus status);

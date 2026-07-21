@@ -1,5 +1,7 @@
 package com.constellations.habits.application.social;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.exception.FriendshipAlreadyExistsException;
 import com.constellations.habits.application.exception.FriendshipNotFoundException;
 import com.constellations.habits.application.exception.InviteCodeNotFoundException;
@@ -109,13 +111,13 @@ public class FriendshipService {
      * Panel social. Resuelve amigos, habitos y logs en tres consultas en total, sea cual
      * sea el numero de amigos.
      */
-    public List<FriendSummary> listFriends(UUID userId) {
-        List<Friendship> accepted = friendships.findAcceptedFor(userId);
-        if (accepted.isEmpty()) {
-            return List.of();
+    public Page<FriendSummary> listFriends(UUID userId, PageQuery query) {
+        Page<Friendship> accepted = friendships.findAcceptedFor(userId, query);
+        if (accepted.content().isEmpty()) {
+            return Page.empty(query);
         }
 
-        Map<UUID, Friendship> byFriendId = accepted.stream()
+        Map<UUID, Friendship> byFriendId = accepted.content().stream()
                 .collect(Collectors.toMap(f -> f.otherParty(userId), f -> f));
 
         List<Habit> friendHabits = habits.findActiveByOwners(byFriendId.keySet());
@@ -124,7 +126,7 @@ public class FriendshipService {
         Map<UUID, List<Habit>> habitsByOwner =
                 friendHabits.stream().collect(Collectors.groupingBy(Habit::ownerId));
 
-        return users.findAllById(byFriendId.keySet()).stream()
+        List<FriendSummary> summaries = users.findAllById(byFriendId.keySet()).stream()
                 .map(friend -> summarize(
                         friend,
                         byFriendId.get(friend.id()),
@@ -133,6 +135,12 @@ public class FriendshipService {
                 .sorted(Comparator.comparing(FriendSummary::bestCurrentStreak).reversed()
                         .thenComparing(FriendSummary::displayName))
                 .toList();
+
+        // El orden por racha se aplica dentro del tramo, no sobre el total: la racha es
+        // un valor calculado que no existe en la base de datos y no se puede ordenar por
+        // el en SQL. Es una limitacion conocida, no un descuido.
+        return new Page<>(
+                summaries, accepted.page(), accepted.size(), accepted.totalElements());
     }
 
     private FriendSummary summarize(

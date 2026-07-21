@@ -1,5 +1,7 @@
 package com.constellations.habits.application.galaxy;
 
+import com.constellations.habits.application.Page;
+import com.constellations.habits.application.PageQuery;
 import com.constellations.habits.application.exception.AlreadyMemberException;
 import com.constellations.habits.application.exception.GalaxyNotFoundException;
 import com.constellations.habits.application.exception.HabitNotFoundException;
@@ -200,7 +202,7 @@ public class GalaxyService {
         LocalDate today = user.today(clock.instant());
         LocalDate from = windowStart(all, today, windowDays);
 
-        GalaxyMap map = LuminosityCalculator.map(all, completionsOf(all), from, today);
+        GalaxyMap map = LuminosityCalculator.map(all, completionsOf(all, from, today), from, today);
 
         List<GalaxyMembership> active = all.stream().filter(GalaxyMembership::isActive).toList();
         GalaxyMembership mine = active.stream()
@@ -208,8 +210,22 @@ public class GalaxyService {
                 .findFirst()
                 .orElse(null);
 
-        return new GalaxyDetail(
-                GalaxyView.of(galaxy, active.size(), mine), map, memberViews(active));
+        // La lista de miembros se pide aparte: en una galaxia abierta puede tener cientos
+        // de nombres, y el mapa se pinta igual sin ellos.
+        return new GalaxyDetail(GalaxyView.of(galaxy, active.size(), mine), map);
+    }
+
+    /** Quienes habitan la galaxia ahora mismo, por tramos. */
+    public Page<GalaxyMemberView> listMembers(UUID galaxyId, PageQuery query) {
+        requireGalaxy(galaxyId);
+
+        Page<GalaxyMembership> page = memberships.findActiveByGalaxy(galaxyId, query);
+        if (page.content().isEmpty()) {
+            return Page.empty(query);
+        }
+
+        List<GalaxyMemberView> views = memberViews(page.content());
+        return new Page<>(views, page.page(), page.size(), page.totalElements());
     }
 
     /** Desglose de un dia concreto: quienes lo iluminaron. */
@@ -220,7 +236,7 @@ public class GalaxyService {
                 .filter(membership -> membership.isActiveOn(date))
                 .toList();
 
-        Map<UUID, Set<LocalDate>> completions = completionsOf(onThatDay);
+        Map<UUID, Set<LocalDate>> completions = completionsOf(onThatDay, date, date);
         List<GalaxyMembership> completed = onThatDay.stream()
                 .filter(membership -> completions
                         .getOrDefault(membership.habitId(), Set.of())
@@ -271,7 +287,9 @@ public class GalaxyService {
     }
 
     /** Una sola consulta de logs para toda la galaxia, sea cual sea el numero de miembros. */
-    private Map<UUID, Set<LocalDate>> completionsOf(List<GalaxyMembership> involved) {
+    private Map<UUID, Set<LocalDate>> completionsOf(
+            List<GalaxyMembership> involved, LocalDate from, LocalDate to) {
+
         List<UUID> habitIds = involved.stream()
                 .map(GalaxyMembership::habitId)
                 .distinct()
@@ -280,7 +298,8 @@ public class GalaxyService {
             return Map.of();
         }
 
-        return logs.findDatesByHabits(habitIds).entrySet().stream()
+        // Acotado a la ventana: el historial anterior no se pinta y no hace falta leerlo.
+        return logs.findDatesByHabitsBetween(habitIds, from, to).entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> Set.copyOf(entry.getValue())));
     }
 
