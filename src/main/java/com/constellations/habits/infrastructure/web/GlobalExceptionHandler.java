@@ -1,13 +1,16 @@
 package com.constellations.habits.infrastructure.web;
 
+import com.constellations.habits.application.exception.AlreadyMemberException;
 import com.constellations.habits.application.exception.EmailAlreadyUsedException;
 import com.constellations.habits.application.exception.FriendshipAlreadyExistsException;
 import com.constellations.habits.application.exception.FriendshipNotFoundException;
+import com.constellations.habits.application.exception.GalaxyNotFoundException;
 import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
 import com.constellations.habits.application.exception.InviteCodeNotFoundException;
 import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.domain.ValidationException;
+import com.constellations.habits.domain.galaxy.NotAMemberException;
 import com.constellations.habits.domain.habit.ArchivedHabitException;
 import com.constellations.habits.domain.habit.InvalidLogDateException;
 import com.constellations.habits.domain.social.FriendshipStateException;
@@ -52,7 +55,8 @@ class GlobalExceptionHandler {
         EmailAlreadyUsedException.class,
         ArchivedHabitException.class,
         FriendshipAlreadyExistsException.class,
-        FriendshipStateException.class
+        FriendshipStateException.class,
+        AlreadyMemberException.class
     })
     ProblemDetail onConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e.getMessage());
@@ -73,7 +77,9 @@ class GlobalExceptionHandler {
         HabitNotFoundException.class,
         UserNotFoundException.class,
         FriendshipNotFoundException.class,
-        InviteCodeNotFoundException.class
+        InviteCodeNotFoundException.class,
+        GalaxyNotFoundException.class,
+        NotAMemberException.class
     })
     ProblemDetail onNotFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e.getMessage());

@@ -1,8 +1,11 @@
 package com.constellations.habits.infrastructure.config;
 
+import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.application.habit.HabitService;
 import com.constellations.habits.application.port.out.AccessTokenIssuer;
 import com.constellations.habits.application.port.out.FriendshipRepository;
+import com.constellations.habits.application.port.out.GalaxyMembershipRepository;
+import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.application.port.out.PasswordHasher;
@@ -50,9 +53,29 @@ public class ApplicationConfig {
     }
 
     @Bean
+    GalaxyService galaxyService(
+            GalaxyRepository galaxies,
+            GalaxyMembershipRepository memberships,
+            HabitRepository habits,
+            HabitLogRepository logs,
+            UserRepository users,
+            Clock clock) {
+        return new GalaxyService(galaxies, memberships, habits, logs, users, clock);
+    }
+
+    /**
+     * Depende de {@link GalaxyService} porque archivar un habito debe sacar a su dueno de
+     * las galaxias que alimentaba. La alternativa seria un evento de dominio, que hoy no
+     * existe y no compensa montar para un unico caso.
+     */
+    @Bean
     HabitService habitService(
-            HabitRepository habits, HabitLogRepository logs, UserRepository users, Clock clock) {
-        return new HabitService(habits, logs, users, clock);
+            HabitRepository habits,
+            HabitLogRepository logs,
+            UserRepository users,
+            GalaxyService galaxies,
+            Clock clock) {
+        return new HabitService(habits, logs, users, galaxies, clock);
     }
 
     @Bean

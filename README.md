@@ -52,13 +52,13 @@ graph TD
     end
 
     subgraph Application["Application — casos de uso"]
-        Services["UserAccountService<br/>HabitService"]
+        Services["UserAccountService · HabitService<br/>FriendshipService · GalaxyService"]
         Ports["port.out<br/>interfaces de repositorio"]
     end
 
     subgraph Domain["Domain — reglas de negocio puras"]
-        Model["User · Habit · HabitLog"]
-        Engine["StreakCalculator<br/>CompletionWindow"]
+        Model["User · Habit · HabitLog<br/>Friendship · Galaxy"]
+        Engine["StreakCalculator · CompletionWindow<br/>LuminosityCalculator"]
     end
 
     Web --> Services
@@ -82,6 +82,9 @@ erDiagram
     HABITS ||--o{ HABIT_LOGS : "acumula"
     USERS ||--o{ FRIENDSHIPS : "solicita"
     USERS ||--o{ FRIENDSHIPS : "recibe"
+    USERS ||--o{ GALAXY_MEMBERSHIPS : "se une"
+    GALAXIES ||--o{ GALAXY_MEMBERSHIPS : "reúne"
+    HABITS ||--o{ GALAXY_MEMBERSHIPS : "alimenta"
 
     USERS {
         uuid        id PK
@@ -117,6 +120,24 @@ erDiagram
         timestamptz created_at
         timestamptz responded_at
     }
+
+    GALAXIES {
+        uuid        id PK
+        varchar     name
+        varchar     description
+        varchar     theme "slug normalizado: agrupa el catálogo"
+        uuid        creator_id FK
+        timestamptz created_at
+    }
+
+    GALAXY_MEMBERSHIPS {
+        uuid        id PK
+        uuid        galaxy_id FK
+        uuid        user_id FK
+        uuid        habit_id FK "el hábito personal que la alimenta"
+        date        joined_on "primer día que pesa en el brillo"
+        date        left_on "null = sigue dentro"
+    }
 ```
 
 La pareja `(habit_id, log_date)` es única: un hábito se cumple una sola vez al día, y es
@@ -126,8 +147,12 @@ En `friendships` el índice único se aplica sobre el par normalizado con
 `LEAST`/`GREATEST`, de forma que `(A,B)` y `(B,A)` colisionan. Así, dos solicitudes
 cruzadas simultáneas no pueden crear dos relaciones entre las mismas personas.
 
-Las rachas **no se almacenan**. Se recalculan a partir de los registros en cada consulta,
-de modo que nunca pueden quedar desincronizadas con la realidad.
+En `galaxy_memberships` el índice único es **parcial** (`WHERE left_on IS NULL`): impide
+pertenecer dos veces a la vez a la misma galaxia, pero permite volver a entrar después de
+haber salido, que es justo lo que hace falta para reconstruir el brillo de días pasados.
+
+Ni las rachas ni el brillo **se almacenan**. Se recalculan a partir de los registros en
+cada consulta, de modo que nunca pueden quedar desincronizados con la realidad.
 
 ## Reglas del motor de rachas
 
@@ -163,6 +188,47 @@ Las solicitudes rechazadas se conservan en lugar de borrarse, de modo que no se 
 insistir en bucle. Eliminar la amistad sí borra la relación, lo que permite volver a
 invitarse más adelante.
 
+## Constelaciones compartidas
+
+Una galaxia es un hábito que varios sostienen a la vez. Cada día se dibuja una estrella
+cuyo **brillo es proporcional a cuánta gente cumplió**: se apaga cuando no cumple nadie,
+pero nunca desaparece.
+
+```
+lun  mar  mié  jue  vie  sáb  dom
+ ●    ◉    ◐    ○    ◉    ●    ◐      ● todos   ◉ mayoría
+4/4  3/4  2/4  0/4  3/4  4/4  1/4     ◐ algunos ○ nadie
+```
+
+Es deliberado que no sea «todos o nada». Con esa regla, la primera persona que falla
+anula el esfuerzo del resto, y a partir de ahí lo racional es no molestarse; con una
+escala, tu cumplimiento siempre suma aunque el grupo se caiga. El nivel máximo se reserva
+al pleno, porque «hoy cumplimos todos» es el único día que merece distinguirse de un
+vistazo.
+
+**El denominador de cada día son los miembros que había _ese_ día**, no los de hoy. Por
+eso las filas de quienes se van no se borran: si se usara el recuento actual, entrar en un
+grupo oscurecería retroactivamente meses en los que nadie hizo nada distinto, y el mapa
+dejaría de ser un registro de lo que pasó.
+
+Unirse **no crea un seguimiento paralelo**: enlaza un hábito personal, o lo crea si no
+existía. Un único registro alimenta a la vez la racha propia y el brillo del grupo, de
+modo que no puede darse el caso de ver dos rachas distintas del mismo esfuerzo según la
+pantalla. Salir conserva el hábito —lo empezó el usuario y las estrellas ganadas son
+suyas— y archivar el hábito saca de las galaxias que alimentaba, para no pesar en el
+denominador sin poder ya marcar nada.
+
+Las galaxias son **abiertas**: cualquiera puede descubrirlas por el catálogo de temas y
+unirse. Eso relaja a propósito la regla de la sección anterior, así que lo que se expone
+está acotado: dentro de una galaxia se ve el **nombre visible** y el cumplimiento del
+hábito compartido, y nada más. Ni el email, ni el código de invitación, ni el resto de
+hábitos, ni las rachas de nadie —esas viven en el panel personal y repetirlas aquí sería
+ruido además de un perfil gratis para un desconocido.
+
+Al tocar un día se listan **quienes cumplieron**, nunca quienes faltaron. La información
+deducible es la misma, pero una lista de ausentes convierte el mapa en un tablón de
+reproches.
+
 ## API
 
 Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
@@ -194,6 +260,19 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `POST`   | `/api/v1/friend-requests/{id}/decline`     | Rechazar (solo el destinatario)      |
 | `GET`    | `/api/v1/friends`                          | Amigos con su progreso agregado      |
 | `DELETE` | `/api/v1/friends/{userId}`                 | Eliminar la amistad                  |
+
+### Constelaciones compartidas
+
+| Método   | Ruta                                          | Descripción                            |
+|----------|-----------------------------------------------|----------------------------------------|
+| `GET`    | `/api/v1/galaxies/catalog`                    | Temas ordenados por popularidad real   |
+| `GET`    | `/api/v1/galaxies/discover?theme=`            | Galaxias abiertas a las que unirse     |
+| `POST`   | `/api/v1/galaxies`                            | Crear una (mete dentro al creador)     |
+| `GET`    | `/api/v1/galaxies`                            | Las tuyas                              |
+| `GET`    | `/api/v1/galaxies/{id}?days=30`               | Mapa de brillo y miembros              |
+| `GET`    | `/api/v1/galaxies/{id}/days/{fecha}`          | Quiénes iluminaron ese día             |
+| `POST`   | `/api/v1/galaxies/{id}/members`               | Unirse enlazando un hábito propio      |
+| `DELETE` | `/api/v1/galaxies/{id}/members/me`            | Salir (el hábito se conserva)          |
 
 Un hábito ajeno responde `404` y nunca `403`: distinguir ambos casos filtraría qué
 identificadores existen. Lo mismo aplica a las solicitudes de amistad de terceros.
@@ -238,4 +317,4 @@ curl -X POST localhost:8080/api/v1/habits \
 | Usuarios, autenticación y CRUD de hábitos       | Completo  |
 | Motor de rachas y constelaciones                | Completo  |
 | Amistades, códigos de invitación y panel social | Completo  |
-| Galaxias compartidas (objetivos de grupo)       | Pendiente |
+| Constelaciones compartidas y mapa de brillo     | Completo  |

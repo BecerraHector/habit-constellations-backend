@@ -2,6 +2,7 @@ package com.constellations.habits.application.habit;
 
 import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.UserNotFoundException;
+import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.application.port.out.UserRepository;
@@ -30,13 +31,19 @@ public class HabitService {
     private final HabitRepository habits;
     private final HabitLogRepository logs;
     private final UserRepository users;
+    private final GalaxyService galaxies;
     private final Clock clock;
 
     public HabitService(
-            HabitRepository habits, HabitLogRepository logs, UserRepository users, Clock clock) {
+            HabitRepository habits,
+            HabitLogRepository logs,
+            UserRepository users,
+            GalaxyService galaxies,
+            Clock clock) {
         this.habits = habits;
         this.logs = logs;
         this.users = users;
+        this.galaxies = galaxies;
         this.clock = clock;
     }
 
@@ -76,9 +83,15 @@ public class HabitService {
         return new HabitView(renamed, progressOf(renamed, todayFor(ownerId)));
     }
 
+    /**
+     * Archivar el habito lo saca ademas de las galaxias que alimentaba. Si no, su dueno
+     * seguiria contando en el denominador del brillo sin poder ya marcar nada, y
+     * oscureceria al grupo indefinidamente.
+     */
     public void archive(UUID ownerId, UUID habitId) {
         Habit habit = requireOwned(ownerId, habitId);
         habits.save(habit.archive(clock.instant()));
+        galaxies.releaseArchivedHabit(habitId, todayFor(ownerId));
     }
 
     /**
