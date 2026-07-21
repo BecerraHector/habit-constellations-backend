@@ -1,0 +1,13 @@
+# Perfil "test". Es un fichero de perfil a proposito: si se llamara application.yml
+# taparia por completo al de src/main/resources en vez de complementarlo, y se perderian
+# los TTL del JWT y el resto de configuracion real que los tests deben ejercitar.
+habits:
+  security:
+    jwt:
+      # Clave descartable exclusiva de los tests: no protege nada real.
+      secret: test-only-signing-key-not-a-real-secret-0123456789
+
+logging:
+  level:
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN
