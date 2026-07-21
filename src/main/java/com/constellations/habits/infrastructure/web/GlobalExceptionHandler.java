@@ -1,12 +1,17 @@
 package com.constellations.habits.infrastructure.web;
 
 import com.constellations.habits.application.exception.EmailAlreadyUsedException;
+import com.constellations.habits.application.exception.FriendshipAlreadyExistsException;
+import com.constellations.habits.application.exception.FriendshipNotFoundException;
 import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
+import com.constellations.habits.application.exception.InviteCodeNotFoundException;
 import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.domain.ValidationException;
 import com.constellations.habits.domain.habit.ArchivedHabitException;
 import com.constellations.habits.domain.habit.InvalidLogDateException;
+import com.constellations.habits.domain.social.FriendshipStateException;
+import com.constellations.habits.domain.social.SelfFriendshipException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -43,9 +48,20 @@ class GlobalExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
     }
 
-    @ExceptionHandler({EmailAlreadyUsedException.class, ArchivedHabitException.class})
+    @ExceptionHandler({
+        EmailAlreadyUsedException.class,
+        ArchivedHabitException.class,
+        FriendshipAlreadyExistsException.class,
+        FriendshipStateException.class
+    })
     ProblemDetail onConflict(RuntimeException e) {
         return problem(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    /** Invitarse a uno mismo es una peticion mal planteada, no un conflicto de estado. */
+    @ExceptionHandler(SelfFriendshipException.class)
+    ProblemDetail onSelfFriendship(SelfFriendshipException e) {
+        return problem(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
@@ -53,7 +69,12 @@ class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
-    @ExceptionHandler({HabitNotFoundException.class, UserNotFoundException.class})
+    @ExceptionHandler({
+        HabitNotFoundException.class,
+        UserNotFoundException.class,
+        FriendshipNotFoundException.class,
+        InviteCodeNotFoundException.class
+    })
     ProblemDetail onNotFound(RuntimeException e) {
         return problem(HttpStatus.NOT_FOUND, e.getMessage());
     }

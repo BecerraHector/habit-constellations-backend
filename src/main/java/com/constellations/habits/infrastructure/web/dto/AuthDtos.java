@@ -28,11 +28,20 @@ public final class AuthDtos {
             @NotBlank @Email String email,
             @NotBlank String password) {}
 
-    public record UserResponse(UUID id, String email, String displayName, String zoneId) {
+    /**
+     * Solo se devuelve al propio usuario, nunca al mirar a un tercero: el codigo de
+     * invitacion es una credencial para contactarle.
+     */
+    public record UserResponse(
+            UUID id, String email, String displayName, String zoneId, String inviteCode) {
 
         public static UserResponse from(User user) {
             return new UserResponse(
-                    user.id(), user.email(), user.displayName(), user.zoneId().getId());
+                    user.id(),
+                    user.email(),
+                    user.displayName(),
+                    user.zoneId().getId(),
+                    user.inviteCode().formatted());
         }
     }
 

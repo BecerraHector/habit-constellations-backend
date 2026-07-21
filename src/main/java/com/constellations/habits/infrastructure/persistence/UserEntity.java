@@ -33,6 +33,9 @@ class UserEntity {
     @Column(name = "zone_id", nullable = false)
     private String zoneId;
 
+    @Column(name = "invite_code", nullable = false)
+    private String inviteCode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

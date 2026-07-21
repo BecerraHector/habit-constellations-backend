@@ -4,6 +4,7 @@ import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.domain.habit.Habit;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,16 @@ class JpaHabitRepository implements HabitRepository {
     @Override
     public List<Habit> findActiveByOwner(UUID ownerId) {
         return delegate.findByOwnerIdAndArchivedAtIsNullOrderByCreatedAtDesc(ownerId).stream()
+                .map(JpaHabitRepository::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Habit> findActiveByOwners(Collection<UUID> ownerIds) {
+        if (ownerIds.isEmpty()) {
+            return List.of();
+        }
+        return delegate.findByOwnerIdInAndArchivedAtIsNull(ownerIds).stream()
                 .map(JpaHabitRepository::toDomain)
                 .toList();
     }

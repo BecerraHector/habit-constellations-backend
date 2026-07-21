@@ -2,6 +2,8 @@ package com.constellations.habits.application.port.out;
 
 import com.constellations.habits.domain.user.User;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,4 +21,11 @@ public interface UserRepository {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    List<User> findAllById(Collection<UUID> ids);
+
+    /** El codigo llega ya normalizado por {@link com.constellations.habits.domain.user.InviteCode}. */
+    Optional<User> findByInviteCode(String inviteCode);
+
+    boolean existsByInviteCode(String inviteCode);
 }

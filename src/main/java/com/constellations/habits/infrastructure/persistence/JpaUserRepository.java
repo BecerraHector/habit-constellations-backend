@@ -1,10 +1,13 @@
 package com.constellations.habits.infrastructure.persistence;
 
 import com.constellations.habits.application.port.out.UserRepository;
+import com.constellations.habits.domain.user.InviteCode;
 import com.constellations.habits.domain.user.User;
 import org.springframework.stereotype.Repository;
 
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +41,21 @@ class JpaUserRepository implements UserRepository {
         return delegate.existsByEmailIgnoringCase(email);
     }
 
+    @Override
+    public List<User> findAllById(Collection<UUID> ids) {
+        return delegate.findAllById(ids).stream().map(JpaUserRepository::toDomain).toList();
+    }
+
+    @Override
+    public Optional<User> findByInviteCode(String inviteCode) {
+        return delegate.findByInviteCode(inviteCode).map(JpaUserRepository::toDomain);
+    }
+
+    @Override
+    public boolean existsByInviteCode(String inviteCode) {
+        return delegate.existsByInviteCode(inviteCode);
+    }
+
     private static UserEntity toEntity(User user) {
         var entity = new UserEntity();
         entity.setId(user.id());
@@ -45,6 +63,7 @@ class JpaUserRepository implements UserRepository {
         entity.setPasswordHash(user.passwordHash());
         entity.setDisplayName(user.displayName());
         entity.setZoneId(user.zoneId().getId());
+        entity.setInviteCode(user.inviteCode().value());
         entity.setCreatedAt(user.createdAt());
         return entity;
     }
@@ -56,6 +75,7 @@ class JpaUserRepository implements UserRepository {
                 entity.getPasswordHash(),
                 entity.getDisplayName(),
                 ZoneId.of(entity.getZoneId()),
+                new InviteCode(entity.getInviteCode()),
                 entity.getCreatedAt());
     }
 }

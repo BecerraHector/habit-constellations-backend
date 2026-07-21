@@ -2,10 +2,13 @@ package com.constellations.habits.infrastructure.config;
 
 import com.constellations.habits.application.habit.HabitService;
 import com.constellations.habits.application.port.out.AccessTokenIssuer;
+import com.constellations.habits.application.port.out.FriendshipRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
 import com.constellations.habits.application.port.out.PasswordHasher;
 import com.constellations.habits.application.port.out.UserRepository;
+import com.constellations.habits.application.social.FriendshipService;
+import com.constellations.habits.application.user.InviteCodeAllocator;
 import com.constellations.habits.application.user.UserAccountService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,14 +35,34 @@ public class ApplicationConfig {
     }
 
     @Bean
+    InviteCodeAllocator inviteCodeAllocator(UserRepository users) {
+        return new InviteCodeAllocator(users);
+    }
+
+    @Bean
     UserAccountService userAccountService(
-            UserRepository users, PasswordHasher hasher, AccessTokenIssuer tokens, Clock clock) {
-        return new UserAccountService(users, hasher, tokens, clock);
+            UserRepository users,
+            PasswordHasher hasher,
+            AccessTokenIssuer tokens,
+            InviteCodeAllocator inviteCodes,
+            Clock clock) {
+        return new UserAccountService(users, hasher, tokens, inviteCodes, clock);
     }
 
     @Bean
     HabitService habitService(
             HabitRepository habits, HabitLogRepository logs, UserRepository users, Clock clock) {
         return new HabitService(habits, logs, users, clock);
+    }
+
+    @Bean
+    FriendshipService friendshipService(
+            FriendshipRepository friendships,
+            UserRepository users,
+            HabitRepository habits,
+            HabitLogRepository logs,
+            InviteCodeAllocator inviteCodes,
+            Clock clock) {
+        return new FriendshipService(friendships, users, habits, logs, inviteCodes, clock);
     }
 }

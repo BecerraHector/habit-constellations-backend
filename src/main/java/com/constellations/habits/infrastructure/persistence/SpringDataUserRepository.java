@@ -15,4 +15,8 @@ interface SpringDataUserRepository extends JpaRepository<UserEntity, UUID> {
 
     @Query("SELECT COUNT(u) > 0 FROM UserEntity u WHERE LOWER(u.email) = :email")
     boolean existsByEmailIgnoringCase(@Param("email") String email);
+
+    Optional<UserEntity> findByInviteCode(String inviteCode);
+
+    boolean existsByInviteCode(String inviteCode);
 }

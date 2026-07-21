@@ -1,5 +1,6 @@
 package com.constellations.habits.infrastructure.security;
 
+import com.constellations.habits.domain.user.InviteCode;
 import com.constellations.habits.domain.user.User;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,7 @@ class JwtServiceTest {
 
     private final User user = new User(
             UUID.randomUUID(), "orion@constelaciones.test", "hash", "Orion",
-            ZoneId.of("America/Lima"), NOW);
+            ZoneId.of("America/Lima"), new InviteCode("RSTN2345"), NOW);
 
     private JwtService serviceAt(Instant instant) {
         var properties = new JwtProperties(

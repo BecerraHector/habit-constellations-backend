@@ -80,6 +80,8 @@ implementa se decide en `infrastructure/config/ApplicationConfig`.
 erDiagram
     USERS ||--o{ HABITS : "crea"
     HABITS ||--o{ HABIT_LOGS : "acumula"
+    USERS ||--o{ FRIENDSHIPS : "solicita"
+    USERS ||--o{ FRIENDSHIPS : "recibe"
 
     USERS {
         uuid        id PK
@@ -87,6 +89,7 @@ erDiagram
         varchar     password_hash
         varchar     display_name
         varchar     zone_id "IANA: dónde cae su medianoche"
+        varchar     invite_code UK "código personal permanente"
         timestamptz created_at
     }
 
@@ -105,10 +108,23 @@ erDiagram
         date        log_date "fecha LOCAL del usuario"
         timestamptz completed_at
     }
+
+    FRIENDSHIPS {
+        uuid        id PK
+        uuid        requester_id FK "quién envió la solicitud"
+        uuid        addressee_id FK "quién puede aceptarla"
+        varchar     status "PENDING · ACCEPTED · DECLINED"
+        timestamptz created_at
+        timestamptz responded_at
+    }
 ```
 
 La pareja `(habit_id, log_date)` es única: un hábito se cumple una sola vez al día, y es
 la base de datos quien lo garantiza, no únicamente el código.
+
+En `friendships` el índice único se aplica sobre el par normalizado con
+`LEAST`/`GREATEST`, de forma que `(A,B)` y `(B,A)` colisionan. Así, dos solicitudes
+cruzadas simultáneas no pueden crear dos relaciones entre las mismas personas.
 
 Las rachas **no se almacenan**. Se recalculan a partir de los registros en cada consulta,
 de modo que nunca pueden quedar desincronizadas con la realidad.
@@ -126,6 +142,26 @@ de modo que nunca pueden quedar desincronizadas con la realidad.
 
 Toda esta lógica vive en `domain/streak/StreakCalculator` y `domain/habit/CompletionWindow`,
 y está cubierta por pruebas unitarias que no necesitan base de datos.
+
+## Funcionamiento social
+
+Cada usuario recibe al registrarse un **código personal permanente** con formato
+`ABCD-2345`. Quien lo conozca puede enviarle una solicitud, que solo se convierte en
+amistad cuando el destinatario la acepta: nadie observa el progreso de otro sin haberlo
+consentido. Si el código se difunde más de la cuenta, se regenera y el anterior deja de
+funcionar.
+
+El alfabeto del código excluye `O`, `0`, `I` y `1`, que son la principal fuente de errores
+al dictarlo en voz alta o teclearlo a mano.
+
+**Un amigo solo ve cifras agregadas**: tu mejor racha viva, tu récord histórico, estrellas
+totales, constelaciones cerradas y cuántos hábitos llevas. Nunca los nombres de esos
+hábitos. «Terapia» o «dejar de fumar» no deberían filtrarse por el hecho de aceptar una
+solicitud, y la motivación social se sostiene igual con los números.
+
+Las solicitudes rechazadas se conservan en lugar de borrarse, de modo que no se pueda
+insistir en bucle. Eliminar la amistad sí borra la relación, lo que permite volver a
+invitarse más adelante.
 
 ## API
 
@@ -145,8 +181,22 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `POST`   | `/api/v1/habits/{id}/completions` | Marcar como cumplido (idempotente)         |
 | `DELETE` | `/api/v1/habits/{id}/completions` | Deshacer un cumplimiento                   |
 
+### Social
+
+| Método   | Ruta                                       | Descripción                          |
+|----------|--------------------------------------------|--------------------------------------|
+| `GET`    | `/api/v1/me/invite-code`                   | Tu código personal                   |
+| `POST`   | `/api/v1/me/invite-code`                   | Regenerarlo (invalida el anterior)   |
+| `POST`   | `/api/v1/friend-requests`                  | Enviar solicitud usando un código    |
+| `GET`    | `/api/v1/friend-requests`                  | Solicitudes recibidas sin responder  |
+| `GET`    | `/api/v1/friend-requests/sent`             | Solicitudes enviadas sin respuesta   |
+| `POST`   | `/api/v1/friend-requests/{id}/accept`      | Aceptar (solo el destinatario)       |
+| `POST`   | `/api/v1/friend-requests/{id}/decline`     | Rechazar (solo el destinatario)      |
+| `GET`    | `/api/v1/friends`                          | Amigos con su progreso agregado      |
+| `DELETE` | `/api/v1/friends/{userId}`                 | Eliminar la amistad                  |
+
 Un hábito ajeno responde `404` y nunca `403`: distinguir ambos casos filtraría qué
-identificadores existen.
+identificadores existen. Lo mismo aplica a las solicitudes de amistad de terceros.
 
 ### Ejemplo
 
@@ -181,10 +231,11 @@ curl -X POST localhost:8080/api/v1/habits \
 
 ## Estado
 
-| Área                                       | Estado    |
-|--------------------------------------------|-----------|
-| Modelado de datos y arquitectura           | Completo  |
-| Entorno Docker, CI y escaneo de secretos   | Completo  |
-| Usuarios, autenticación y CRUD de hábitos  | Completo  |
-| Motor de rachas y constelaciones           | Completo  |
-| Funcionalidad social (amistades, galaxias) | Pendiente |
+| Área                                            | Estado    |
+|-------------------------------------------------|-----------|
+| Modelado de datos y arquitectura                | Completo  |
+| Entorno Docker, CI y escaneo de secretos        | Completo  |
+| Usuarios, autenticación y CRUD de hábitos       | Completo  |
+| Motor de rachas y constelaciones                | Completo  |
+| Amistades, códigos de invitación y panel social | Completo  |
+| Galaxias compartidas (objetivos de grupo)       | Pendiente |

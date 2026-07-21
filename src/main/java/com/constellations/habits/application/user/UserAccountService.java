@@ -21,13 +21,19 @@ public class UserAccountService {
     private final UserRepository users;
     private final PasswordHasher hasher;
     private final AccessTokenIssuer tokens;
+    private final InviteCodeAllocator inviteCodes;
     private final Clock clock;
 
     public UserAccountService(
-            UserRepository users, PasswordHasher hasher, AccessTokenIssuer tokens, Clock clock) {
+            UserRepository users,
+            PasswordHasher hasher,
+            AccessTokenIssuer tokens,
+            InviteCodeAllocator inviteCodes,
+            Clock clock) {
         this.users = users;
         this.hasher = hasher;
         this.tokens = tokens;
+        this.inviteCodes = inviteCodes;
         this.clock = clock;
     }
 
@@ -40,8 +46,15 @@ public class UserAccountService {
             throw new EmailAlreadyUsedException();
         }
 
+        // El codigo de invitacion se asigna en el alta: cada cuenta nace lista para
+        // recibir solicitudes sin un paso extra.
         User user = User.register(
-                email, hasher.hash(command.password()), command.displayName(), zone, clock.instant());
+                email,
+                hasher.hash(command.password()),
+                command.displayName(),
+                zone,
+                inviteCodes.allocate(),
+                clock.instant());
         return users.save(user);
     }
 
