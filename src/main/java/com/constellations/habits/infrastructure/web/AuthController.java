@@ -67,6 +67,17 @@ class AuthController {
     }
 
     /**
+     * Cierra todas las sesiones del usuario, la actual incluida: revoca cada token de
+     * refresco vivo. Pensado para el "cerrar sesion en todos los dispositivos" tras
+     * perder un movil o sospechar de un acceso ajeno.
+     */
+    @PostMapping("/logout-all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void logoutEverywhere(@AuthenticationPrincipal AuthenticatedUserId principal) {
+        accounts.logoutEverywhere(principal.value());
+    }
+
+    /**
      * Da de baja la cuenta. Los habitos privados desaparecen; las estrellas que este
      * usuario aporto a una galaxia se conservan como recuento anonimo, porque el mapa de
      * los demas no deberia reescribirse porque alguien se vaya.

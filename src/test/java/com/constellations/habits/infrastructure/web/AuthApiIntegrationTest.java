@@ -110,6 +110,28 @@ class AuthApiIntegrationTest {
     }
 
     @Test
+    void cerrar_todas_las_sesiones_revoca_cada_token_de_refresco() throws Exception {
+        String email = register("multisesion");
+        var movil = login(email);
+        var portatil = login(email);
+
+        mvc.perform(post("/api/v1/auth/logout-all")
+                        .header("Authorization", "Bearer " + movil.accessToken()))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(refreshRequest(movil.refreshToken()))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(refreshRequest(portatil.refreshToken()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void cerrar_todas_las_sesiones_exige_estar_autenticado() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout-all"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void un_token_de_refresco_no_sirve_para_autenticar_peticiones() throws Exception {
         var session = login(register("confundido"));
 

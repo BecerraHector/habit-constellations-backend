@@ -161,6 +161,15 @@ public class UserAccountService {
     }
 
     /**
+     * Cierra todas las sesiones del usuario revocando sus tokens de refresco. Los tokens
+     * de acceso ya emitidos siguen valiendo hasta caducar (minutos): es el precio de que
+     * los JWT no se comprueben contra la base en cada peticion.
+     */
+    public void logoutEverywhere(UUID userId) {
+        refreshTokens.revokeAllForUser(userId, clock.instant());
+    }
+
+    /**
      * Da de baja la cuenta. Pide la contrasena porque es irreversible y un token robado
      * no deberia bastar para borrarle la vida a nadie.
      *
