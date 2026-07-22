@@ -1,5 +1,6 @@
 package com.constellations.habits.application.galaxy;
 
+import com.constellations.habits.application.port.out.FriendshipRepository;
 import com.constellations.habits.application.port.out.GalaxyMembershipRepository;
 import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
@@ -51,6 +52,7 @@ class GalaxyServiceWindowTest {
     @Mock HabitRepository habits;
     @Mock HabitLogRepository logs;
     @Mock UserRepository users;
+    @Mock FriendshipRepository friendships;
     @Mock TransactionRunner transaction;
 
     private GalaxyService service;
@@ -59,7 +61,8 @@ class GalaxyServiceWindowTest {
 
     @BeforeEach
     void setUp() {
-        service = new GalaxyService(galaxies, memberships, habits, logs, users, transaction, CLOCK);
+        service = new GalaxyService(
+                galaxies, memberships, habits, logs, users, friendships, transaction, CLOCK);
 
         ana = User.register(
                 "ana@test.dev", "$hash$", "Ana", ZoneId.of("America/Lima"),
@@ -75,7 +78,7 @@ class GalaxyServiceWindowTest {
     void la_ventana_por_defecto_cubre_el_ciclo_de_30_dias() {
         memberSince(TODAY.minusDays(100));
 
-        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null);
+        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null, false);
 
         assertThat(detail.map().from()).isEqualTo(TODAY.minusDays(29));
         assertThat(detail.map().to()).isEqualTo(TODAY);
@@ -87,7 +90,7 @@ class GalaxyServiceWindowTest {
         // Galaxia de cinco dias: pintar los 25 anteriores seria una franja sin sentido.
         memberSince(TODAY.minusDays(4));
 
-        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null);
+        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null, false);
 
         assertThat(detail.map().from()).isEqualTo(TODAY.minusDays(4));
         assertThat(detail.map().days()).hasSize(5);
@@ -105,7 +108,7 @@ class GalaxyServiceWindowTest {
 
         when(memberships.findAllByGalaxy(galaxy.id())).thenReturn(List.of(veteranGone, recent));
 
-        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null);
+        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), null, false);
 
         // Quien se fue sigue definiendo desde cuando existe historia que pintar.
         assertThat(detail.map().from()).isEqualTo(TODAY.minusDays(10));
@@ -115,7 +118,7 @@ class GalaxyServiceWindowTest {
     void una_ventana_pedida_mas_grande_que_el_tope_se_recorta() {
         memberSince(TODAY.minusDays(1000));
 
-        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), 1000);
+        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), 1000, false);
 
         assertThat(detail.map().from()).isEqualTo(TODAY.minusDays(GalaxyService.MAX_WINDOW_DAYS - 1L));
     }
@@ -124,7 +127,7 @@ class GalaxyServiceWindowTest {
     void una_ventana_invalida_cae_al_defecto() {
         memberSince(TODAY.minusDays(100));
 
-        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), -5);
+        GalaxyDetail detail = service.get(ana.id(), galaxy.id(), -5, false);
 
         assertThat(detail.map().from()).isEqualTo(TODAY.minusDays(29));
     }

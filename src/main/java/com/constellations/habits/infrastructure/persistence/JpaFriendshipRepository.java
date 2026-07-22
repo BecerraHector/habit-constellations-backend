@@ -6,6 +6,7 @@ import com.constellations.habits.application.port.out.FriendshipRepository;
 import com.constellations.habits.domain.social.Friendship;
 import com.constellations.habits.domain.social.FriendshipStatus;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,12 @@ class JpaFriendshipRepository implements FriendshipRepository {
 
         return new Page<>(
                 map(found.getContent()), query.page(), query.size(), found.getTotalElements());
+    }
+
+    @Override
+    public List<Friendship> findAllAcceptedFor(UUID userId) {
+        return map(delegate.findByStatusInvolving(userId, FriendshipStatus.ACCEPTED, Pageable.unpaged())
+                .getContent());
     }
 
     @Override

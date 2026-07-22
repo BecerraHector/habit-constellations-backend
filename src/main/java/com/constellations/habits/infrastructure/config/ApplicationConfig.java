@@ -82,9 +82,11 @@ public class ApplicationConfig {
             HabitRepository habits,
             HabitLogRepository logs,
             UserRepository users,
+            FriendshipRepository friendships,
             TransactionRunner transaction,
             Clock clock) {
-        return new GalaxyService(galaxies, memberships, habits, logs, users, transaction, clock);
+        return new GalaxyService(
+                galaxies, memberships, habits, logs, users, friendships, transaction, clock);
     }
 
     /**

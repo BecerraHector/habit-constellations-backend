@@ -83,14 +83,19 @@ class GalaxyController {
                 .toList();
     }
 
-    /** La galaxia con su mapa de brillo. {@code days} recorta la ventana; por defecto 30. */
+    /**
+     * La galaxia con su mapa de brillo. {@code days} recorta la ventana (30 por
+     * defecto); {@code friends=true} acota el brillo al circulo de quien mira.
+     */
     @GetMapping("/{galaxyId}")
     GalaxyDetailResponse detail(
             @AuthenticationPrincipal AuthenticatedUserId principal,
             @PathVariable UUID galaxyId,
-            @RequestParam(required = false) Integer days) {
+            @RequestParam(required = false) Integer days,
+            @RequestParam(required = false) Boolean friends) {
 
-        return GalaxyDetailResponse.from(galaxies.get(principal.value(), galaxyId, days));
+        return GalaxyDetailResponse.from(
+                galaxies.get(principal.value(), galaxyId, days, Boolean.TRUE.equals(friends)));
     }
 
     /** Quienes habitan la galaxia. Aparte del detalle porque pueden ser cientos. */
@@ -105,12 +110,16 @@ class GalaxyController {
                 GalaxyMemberResponse::from);
     }
 
+    /** El mismo {@code friends} que el mapa: el desglose debe cuadrar con la estrella. */
     @GetMapping("/{galaxyId}/days/{date}")
     GalaxyDayDetailResponse day(
+            @AuthenticationPrincipal AuthenticatedUserId principal,
             @PathVariable UUID galaxyId,
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Boolean friends) {
 
-        return GalaxyDayDetailResponse.from(galaxies.dayDetail(galaxyId, date));
+        return GalaxyDayDetailResponse.from(galaxies.dayDetail(
+                principal.value(), galaxyId, date, Boolean.TRUE.equals(friends)));
     }
 
     @PostMapping("/{galaxyId}/members")

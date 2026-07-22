@@ -6,6 +6,7 @@ import com.constellations.habits.application.exception.AlreadyMemberException;
 import com.constellations.habits.application.exception.GalaxyNotFoundException;
 import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.UserNotFoundException;
+import com.constellations.habits.application.port.out.FriendshipRepository;
 import com.constellations.habits.application.port.out.GalaxyMembershipRepository;
 import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
@@ -28,6 +29,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +62,7 @@ public class GalaxyService {
     private final HabitRepository habits;
     private final HabitLogRepository logs;
     private final UserRepository users;
+    private final FriendshipRepository friendships;
     private final TransactionRunner transaction;
     private final Clock clock;
 
@@ -69,6 +72,7 @@ public class GalaxyService {
             HabitRepository habits,
             HabitLogRepository logs,
             UserRepository users,
+            FriendshipRepository friendships,
             TransactionRunner transaction,
             Clock clock) {
         this.galaxies = galaxies;
@@ -76,6 +80,7 @@ public class GalaxyService {
         this.habits = habits;
         this.logs = logs;
         this.users = users;
+        this.friendships = friendships;
         this.transaction = transaction;
         this.clock = clock;
     }
@@ -217,15 +222,23 @@ public class GalaxyService {
         return List.copyOf(merged.values());
     }
 
-    public GalaxyDetail get(UUID userId, UUID galaxyId, Integer windowDays) {
+    /**
+     * @param friendsOnly acota el mapa a los amigos de quien mira (y a si mismo). En una
+     *                    galaxia muy concurrida el brillo global deja de ser presion de
+     *                    grupo y pasa a ser estadistica; el circulo propio lo devuelve a
+     *                    su escala humana. La cifra de habitantes sigue siendo la global.
+     */
+    public GalaxyDetail get(UUID userId, UUID galaxyId, Integer windowDays, boolean friendsOnly) {
         User user = requireUser(userId);
         Galaxy galaxy = requireGalaxy(galaxyId);
 
         List<GalaxyMembership> all = memberships.findAllByGalaxy(galaxyId);
+        List<GalaxyMembership> shown = visibleTo(userId, all, friendsOnly);
         LocalDate today = user.today(clock.instant());
-        LocalDate from = windowStart(all, today, windowDays);
+        LocalDate from = windowStart(shown, today, windowDays);
 
-        GalaxyMap map = LuminosityCalculator.map(all, completionsOf(all, from, today), from, today);
+        GalaxyMap map =
+                LuminosityCalculator.map(shown, completionsOf(shown, from, today), from, today);
 
         List<GalaxyMembership> active = all.stream().filter(GalaxyMembership::isActive).toList();
         GalaxyMembership mine = active.stream()
@@ -251,11 +264,16 @@ public class GalaxyService {
         return new Page<>(views, page.page(), page.size(), page.totalElements());
     }
 
-    /** Desglose de un dia concreto: quienes lo iluminaron. */
-    public GalaxyDayDetail dayDetail(UUID galaxyId, LocalDate date) {
+    /**
+     * Desglose de un dia concreto: quienes lo iluminaron. Acepta el mismo filtro de
+     * amigos que el mapa: si no compartieran filtro, la lista de nombres y la cifra de
+     * la estrella dejarian de cuadrar.
+     */
+    public GalaxyDayDetail dayDetail(UUID userId, UUID galaxyId, LocalDate date, boolean friendsOnly) {
         requireGalaxy(galaxyId);
 
-        List<GalaxyMembership> history = memberships.findAllByGalaxy(galaxyId);
+        List<GalaxyMembership> history =
+                visibleTo(userId, memberships.findAllByGalaxy(galaxyId), friendsOnly);
         Map<UUID, Set<LocalDate>> completions = completionsOf(history, date, date);
 
         // Misma regla que el mapa, tomada del dominio: si se aplicara aparte, la lista
@@ -284,6 +302,21 @@ public class GalaxyService {
     private static boolean completedOn(
             GalaxyMembership membership, LocalDate date, Map<UUID, Set<LocalDate>> completions) {
         return completions.getOrDefault(membership.habitId(), Set.of()).contains(date);
+    }
+
+    /** El circulo de quien mira: sus amistades aceptadas y su propia pertenencia. */
+    private List<GalaxyMembership> visibleTo(
+            UUID userId, List<GalaxyMembership> all, boolean friendsOnly) {
+
+        if (!friendsOnly) {
+            return all;
+        }
+        Set<UUID> circle = friendships.findAllAcceptedFor(userId).stream()
+                .map(friendship -> friendship.otherParty(userId))
+                .collect(Collectors.toCollection(HashSet::new));
+        circle.add(userId);
+
+        return all.stream().filter(membership -> circle.contains(membership.userId())).toList();
     }
 
     private GalaxyMembership enroll(

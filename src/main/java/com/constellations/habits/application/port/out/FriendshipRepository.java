@@ -26,6 +26,13 @@ public interface FriendshipRepository {
      */
     Page<Friendship> findAcceptedFor(UUID userId, PageQuery query);
 
+    /**
+     * Todas las amistades aceptadas de un usuario, sin paginar. Alimenta filtros (como
+     * el mapa de brillo acotado a amigos), no listados: el tamano lo limita cuantas
+     * amistades reales puede tener una persona, no un parametro de pagina.
+     */
+    List<Friendship> findAllAcceptedFor(UUID userId);
+
     /** Solicitudes que el usuario ha recibido y aun no ha respondido. */
     List<Friendship> findPendingReceivedBy(UUID userId);
 

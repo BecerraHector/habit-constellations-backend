@@ -134,6 +134,67 @@ class GalaxyApiIntegrationTest {
     }
 
     @Test
+    void el_filtro_de_amigos_acota_el_mapa_y_el_desglose_a_la_vez() throws Exception {
+        var ana = registerUser("circulo-a");
+        var bruno = registerUser("circulo-b");
+        var extrano = registerUser("circulo-x");
+        befriend(ana, bruno);
+
+        String galaxyId = createGalaxy(ana.token(), "Correr al alba", "correr", null);
+        complete(ana.token(), habitOf(ana.token(), galaxyId));
+        complete(bruno.token(), joinAndGetHabit(bruno.token(), galaxyId));
+        complete(extrano.token(), joinAndGetHabit(extrano.token(), galaxyId));
+
+        // Sin filtro: los tres pesan.
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId)
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(jsonPath("$.map.days[0].activeMembers").value(3))
+                .andExpect(jsonPath("$.map.days[0].completions").value(3));
+
+        // Con filtro: solo Ana y su amigo. La cifra de habitantes sigue siendo la global.
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId + "?friends=true")
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(jsonPath("$.map.days[0].activeMembers").value(2))
+                .andExpect(jsonPath("$.map.days[0].completions").value(2))
+                .andExpect(jsonPath("$.galaxy.activeMembers").value(3));
+
+        // El desglose comparte el filtro: los nombres cuadran con la estrella.
+        String body = mvc.perform(get(
+                        "/api/v1/galaxies/" + galaxyId + "/days/" + today() + "?friends=true")
+                        .header("Authorization", "Bearer " + ana.token()))
+                .andExpect(jsonPath("$.completions").value(2))
+                .andExpect(jsonPath("$.completedBy.length()").value(2))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body).doesNotContain(extrano.displayName());
+    }
+
+    @Test
+    void una_galaxia_vacia_sigue_siendo_descubrible_y_se_puede_revivir() throws Exception {
+        var fundadora = registerUser("reliquia-f");
+        var descubridor = registerUser("reliquia-d");
+
+        String galaxyId = createGalaxy(fundadora.token(), "Cielo antiguo", "meditacion", null);
+        complete(fundadora.token(), habitOf(fundadora.token(), galaxyId));
+
+        mvc.perform(delete("/api/v1/galaxies/" + galaxyId + "/members/me")
+                        .header("Authorization", "Bearer " + fundadora.token()))
+                .andExpect(status().isNoContent());
+
+        // A oscuras pero presente: la reliquia aparece en descubrir, con cero habitantes.
+        mvc.perform(get("/api/v1/galaxies/discover?theme=meditacion")
+                        .header("Authorization", "Bearer " + descubridor.token()))
+                .andExpect(jsonPath("$[?(@.id == '%s')].activeMembers".formatted(galaxyId))
+                        .value(0));
+
+        // Revivirla es simplemente entrar, y la historia previa se conserva.
+        joinAndGetHabit(descubridor.token(), galaxyId);
+        mvc.perform(get("/api/v1/galaxies/" + galaxyId)
+                        .header("Authorization", "Bearer " + descubridor.token()))
+                .andExpect(jsonPath("$.galaxy.activeMembers").value(1))
+                .andExpect(jsonPath("$.map.totalStars").value(1));
+    }
+
+    @Test
     void una_galaxia_no_revela_el_email_ni_el_codigo_ni_los_demas_habitos() throws Exception {
         var ana = registerUser("observadora");
         var bruno = registerUser("observado");
@@ -454,6 +515,28 @@ class GalaxyApiIntegrationTest {
                 email,
                 displayName,
                 JsonPath.read(loginBody, "$.accessToken"));
+    }
+
+    /** Alta de amistad completa: codigo de invitacion, solicitud y aceptacion. */
+    private void befriend(TestUser requester, TestUser addressee) throws Exception {
+        String codeBody = mvc.perform(get("/api/v1/me/invite-code")
+                        .header("Authorization", "Bearer " + addressee.token()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String inviteCode = JsonPath.read(codeBody, "$.inviteCode");
+
+        String requestBody = mvc.perform(post("/api/v1/friend-requests")
+                        .header("Authorization", "Bearer " + requester.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"inviteCode":"%s"}""".formatted(inviteCode)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String requestId = JsonPath.read(requestBody, "$.requestId");
+
+        mvc.perform(post("/api/v1/friend-requests/" + requestId + "/accept")
+                        .header("Authorization", "Bearer " + addressee.token()))
+                .andExpect(status().isNoContent());
     }
 
     private String createGalaxy(String token, String name, String theme, String habitId)

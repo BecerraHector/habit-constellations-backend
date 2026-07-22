@@ -99,12 +99,15 @@ propio *antes* de construir encima, en lugar de al terminar.
 
 ---
 
-## Además, cuando haya frontend
+## Además, ahora que hay frontend
 
-- **El brillo en galaxias muy concurridas** deja de ser presión de grupo y pasa a ser una
-  estadística. Está explicado en el README; la salida es filtrar el mapa a los amigos que
-  hay dentro del grupo, y las amistades ya existen.
-- **Una galaxia puede quedarse sin ningún miembro** si todos la abandonan o se dan de baja.
-  Hoy simplemente se queda a oscuras y sigue apareciendo en el catálogo. Habría que
-  decidir si se archiva sola, si se ofrece a quien la descubra, o si se deja tal cual como
-  registro de algo que existió.
+- **El brillo acotado al círculo propio: hecho.** `GET /galaxies/{id}?friends=true` (y el
+  mismo parámetro en el desglose del día, porque si no compartieran filtro los nombres
+  dejarían de cuadrar con la cifra) calcula el mapa solo con los amigos de quien mira y
+  con él mismo. La cifra de habitantes sigue siendo la global a propósito: el filtro
+  cambia qué brillo ves, no cuánta gente hay. En la interfaz es el conmutador
+  «Todo el cielo / Mi círculo», que viaja en la URL.
+- **Galaxias vacías: decidido, son reliquias descubribles.** Siguen apareciendo en
+  descubrir —el orden por popularidad ya las hunde al final— marcadas «a oscuras», y
+  unirse las revive heredando su historia. Coherente con que las galaxias son abiertas y
+  el pasado no se reescribe. Hay prueba de integración que fija ambas cosas.
