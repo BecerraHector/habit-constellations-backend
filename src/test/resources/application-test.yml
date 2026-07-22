@@ -6,6 +6,10 @@ habits:
     jwt:
       # Clave descartable exclusiva de los tests: no protege nada real.
       secret: test-only-signing-key-not-a-real-secret-0123456789
+    throttle:
+      # La suite entera hace login desde 127.0.0.1; con el tope real se estrangularia
+      # a si misma. El tope por IP tiene su propio test, que lo baja con @TestPropertySource.
+      ip-requests-per-minute: 100000
   web:
     cors:
       # En produccion la lista va vacia; aqui se fija para poder ejercitar el preflight.

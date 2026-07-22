@@ -8,17 +8,20 @@ import com.constellations.habits.application.port.out.GalaxyMembershipRepository
 import com.constellations.habits.application.port.out.GalaxyRepository;
 import com.constellations.habits.application.port.out.HabitLogRepository;
 import com.constellations.habits.application.port.out.HabitRepository;
+import com.constellations.habits.application.port.out.LoginAttemptLimiter;
 import com.constellations.habits.application.port.out.PasswordHasher;
 import com.constellations.habits.application.port.out.RefreshTokenRepository;
 import com.constellations.habits.application.port.out.TokenHasher;
 import com.constellations.habits.application.port.out.TransactionRunner;
 import com.constellations.habits.application.port.out.UserRepository;
+import com.constellations.habits.infrastructure.security.InMemoryLoginAttemptLimiter;
 import com.constellations.habits.infrastructure.security.JwtProperties;
 import com.constellations.habits.application.social.FriendshipService;
 import com.constellations.habits.application.user.InviteCodeAllocator;
 import com.constellations.habits.application.user.UserAccountService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.Clock;
 
@@ -30,6 +33,7 @@ import java.time.Clock;
  * declararlos aqui a mano, que es exactamente donde debe vivir esa decision.
  */
 @Configuration
+@EnableScheduling
 public class ApplicationConfig {
 
     /**
@@ -47,6 +51,11 @@ public class ApplicationConfig {
     }
 
     @Bean
+    LoginAttemptLimiter loginAttemptLimiter(Clock clock) {
+        return new InMemoryLoginAttemptLimiter(clock);
+    }
+
+    @Bean
     UserAccountService userAccountService(
             UserRepository users,
             HabitRepository habits,
@@ -58,11 +67,12 @@ public class ApplicationConfig {
             TokenHasher tokenHasher,
             InviteCodeAllocator inviteCodes,
             TransactionRunner transaction,
+            LoginAttemptLimiter loginAttempts,
             JwtProperties jwt,
             Clock clock) {
         return new UserAccountService(
                 users, habits, friendships, galaxies, hasher, tokens, refreshTokens, tokenHasher,
-                inviteCodes, transaction, jwt.refreshTokenTtl(), clock);
+                inviteCodes, transaction, loginAttempts, jwt.refreshTokenTtl(), clock);
     }
 
     @Bean

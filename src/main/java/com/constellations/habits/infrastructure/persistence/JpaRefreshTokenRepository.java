@@ -40,6 +40,12 @@ class JpaRefreshTokenRepository implements RefreshTokenRepository {
         delegate.deleteAllForUser(userId);
     }
 
+    @Override
+    @Transactional
+    public int deleteExpiredBefore(Instant now) {
+        return delegate.deleteExpiredBefore(now);
+    }
+
     private static RefreshTokenEntity toEntity(RefreshToken token) {
         var entity = new RefreshTokenEntity();
         entity.setId(token.id());

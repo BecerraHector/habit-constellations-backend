@@ -3,6 +3,8 @@ package com.constellations.habits.application.user;
 import com.constellations.habits.application.exception.EmailAlreadyUsedException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
 import com.constellations.habits.application.exception.InvalidRefreshTokenException;
+import com.constellations.habits.application.exception.TooManyAttemptsException;
+import com.constellations.habits.application.port.out.LoginAttemptLimiter;
 import com.constellations.habits.application.galaxy.GalaxyService;
 import com.constellations.habits.application.port.out.AccessTokenIssuer;
 import com.constellations.habits.application.port.out.FriendshipRepository;
@@ -46,6 +48,7 @@ public class UserAccountService {
     private final TokenHasher tokenHasher;
     private final InviteCodeAllocator inviteCodes;
     private final TransactionRunner transaction;
+    private final LoginAttemptLimiter loginAttempts;
     private final Duration refreshTokenTtl;
     private final Clock clock;
 
@@ -60,6 +63,7 @@ public class UserAccountService {
             TokenHasher tokenHasher,
             InviteCodeAllocator inviteCodes,
             TransactionRunner transaction,
+            LoginAttemptLimiter loginAttempts,
             Duration refreshTokenTtl,
             Clock clock) {
         this.users = users;
@@ -72,6 +76,7 @@ public class UserAccountService {
         this.tokenHasher = tokenHasher;
         this.inviteCodes = inviteCodes;
         this.transaction = transaction;
+        this.loginAttempts = loginAttempts;
         this.refreshTokenTtl = refreshTokenTtl;
         this.clock = clock;
     }
@@ -100,11 +105,23 @@ public class UserAccountService {
     public AuthenticatedUser login(LoginCommand command) {
         String email = User.normalizeEmail(command.email());
 
-        User user = users.findByEmail(email)
-                .filter(candidate -> hasher.matches(command.password(), candidate.passwordHash()))
-                .orElseThrow(InvalidCredentialsException::new);
+        // El freno actua antes de tocar la base y exista o no la cuenta: si solo se
+        // frenaran los emails registrados, la propia cadencia revelaria cuales existen.
+        Duration wait = loginAttempts.retryAfter(email);
+        if (!wait.isZero()) {
+            throw new TooManyAttemptsException(wait);
+        }
 
-        return authenticate(user);
+        var user = users.findByEmail(email)
+                .filter(candidate -> hasher.matches(command.password(), candidate.passwordHash()));
+
+        if (user.isEmpty()) {
+            loginAttempts.recordFailure(email);
+            throw new InvalidCredentialsException();
+        }
+
+        loginAttempts.clear(email);
+        return authenticate(user.get());
     }
 
     /**

@@ -27,4 +27,8 @@ interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshTokenEnt
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM RefreshTokenEntity t WHERE t.userId = :userId")
     int deleteAllForUser(@Param("userId") UUID userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM RefreshTokenEntity t WHERE t.expiresAt < :now")
+    int deleteExpiredBefore(@Param("now") Instant now);
 }

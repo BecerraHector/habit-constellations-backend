@@ -21,4 +21,11 @@ public interface RefreshTokenRepository {
 
     /** Al darse de baja no hay nada que auditar: las sesiones se borran, no se marcan. */
     void deleteAllForUser(UUID userId);
+
+    /**
+     * Borra las filas ya caducadas, revocadas o no. Las revocadas vivas se conservan:
+     * son las que delatan que un token robado vuelve a presentarse. Una caducada hace
+     * tiempo ya no detecta nada, solo ocupa.
+     */
+    int deleteExpiredBefore(Instant now);
 }

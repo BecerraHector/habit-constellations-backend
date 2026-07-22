@@ -23,6 +23,10 @@ habits:
       access-token-ttl: PT30M
       refresh-token-ttl: P30D
       issuer: habit-tracker
+    throttle:
+      # Tope duro por IP sobre login y solicitudes de amistad. El retardo creciente
+      # por cuenta no se configura: sus constantes viven en el limitador.
+      ip-requests-per-minute: 30
   web:
     cors:
       # Vacio por defecto: sin frontend desplegado, lo correcto es no abrir nada.

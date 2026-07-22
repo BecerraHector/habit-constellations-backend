@@ -8,50 +8,49 @@ Orden por importancia, no por esfuerzo.
 
 ---
 
-## 1. El login no tiene límite de intentos
+## 1. El login ya tiene límite de intentos
 
-**Estado:** pendiente · **Riesgo:** alto
+**Estado:** hecho, con una limitación conocida
 
-Nada impide probar contraseñas contra `POST /api/v1/auth/login` a máxima velocidad. BCrypt
-encarece cada intento lo suficiente para que no sea gratis, pero no sustituye a un límite:
-con paralelismo, una contraseña débil sigue cayendo.
+Se cerró con las dos piezas que pedía la nota original: un **retardo creciente por
+cuenta** (`InMemoryLoginAttemptLimiter`, detrás del puerto `LoginAttemptLimiter`: tres
+fallos gratis, después 30 s que se duplican hasta 15 min; el éxito perdona) y un **tope
+duro por IP** (`IpThrottleFilter`, ventana fija por minuto, corre antes que Spring
+Security para que una IP bloqueada no cueste ni un BCrypt). El freno por cuenta actúa
+exista o no el email, para no revelar cuáles existen por la cadencia. El filtro por IP
+cubre también `POST /api/v1/friend-requests`, que era el otro espacio de búsqueda.
 
-Es la carencia de seguridad más seria que queda, y **debería cerrarse antes de exponer la
-API en un servidor público**.
+**Limitación:** ambos guardan su estado en memoria del proceso. Con una sola instancia es
+correcto; si algún día hay varias detrás de un balanceador, cada una llevará su propia
+cuenta y el límite efectivo se multiplica. La salida entonces es un almacén compartido
+(Redis) detrás de los mismos puertos, sin tocar el caso de uso. Detrás de un proxy
+inverso hay que activar `server.forward-headers-strategy` para que la IP vista sea la
+real y no la del proxy.
 
-Hace falta limitar por IP y por cuenta a la vez. Solo por IP no protege de un ataque
-distribuido contra una cuenta concreta; solo por cuenta permite que alguien bloquee a otro
-a base de fallar sus intentos, que es una denegación de servicio con otro nombre. Lo
-razonable es un retardo creciente por cuenta y un tope duro por IP.
+## 2. Las filas de `refresh_tokens` ya se limpian
 
-Afecta también a `POST /api/v1/friend-requests`: probar códigos de invitación al azar es
-otro espacio de búsqueda, aunque de 32⁸ y por tanto mucho menos urgente.
+**Estado:** hecho
 
-## 2. Las filas de `refresh_tokens` no se limpian nunca
+`RefreshTokenCleanupJob` barre a diario (04:00 UTC) las filas **ya caducadas**, revocadas
+o no, mediante `deleteExpiredBefore`. Las revocadas aún vigentes se conservan tal como
+pedía la nota: son las que delatan que un token robado vuelve a presentarse.
 
-**Estado:** pendiente · **Riesgo:** medio, creciente con el tiempo
+De la decisión pendiente que acompañaba a esta nota, la mitad ya existe: hay
+`POST /api/v1/auth/logout-all` para cerrar todas las sesiones. Ver y enumerar las
+sesiones activas una a una sigue sin hacerse, y hoy ninguna pantalla lo pide.
 
-Cada login inserta una fila y ninguna se borra jamás, ni siquiera al caducar. La tabla
-crece de forma indefinida.
+## 3. La capa de aplicación casi no tiene pruebas unitarias
 
-No se pueden borrar las revocadas sin más: son justo las que permiten detectar que un
-token ya usado vuelve a presentarse. Lo correcto es borrar por **fecha de caducidad**
-—una fila caducada hace meses ya no detecta nada útil— con una tarea periódica.
-
-Conviene decidir a la vez si un usuario debe poder ver y cerrar sus sesiones activas
-desde la aplicación, porque reutiliza exactamente los mismos datos.
-
-## 3. La capa de aplicación no tiene pruebas unitarias
-
-**Estado:** pendiente · **Riesgo:** medio
+**Estado:** empezado · **Riesgo:** medio
 
 El dominio está muy cubierto y hay pruebas de integración de extremo a extremo, pero los
 servicios de aplicación solo se ejercitan a través de HTTP y PostgreSQL. Eso encarece
 probar los casos raros: un fallo a mitad de transacción o un reloj en una fecha concreta
 exigen montar el mundo entero.
 
-Los puertos ya están definidos, así que meter dobles es barato. Los casos que más lo
-piden son `GalaxyService.windowStart` (la ventana con miembros que entran y salen) y
+`UserAccountServiceLoginTest` abrió el camino (el login con el freno de intentos, con
+todos los puertos doblados). Los casos que más piden lo mismo siguen siendo
+`GalaxyService.windowStart` (la ventana con miembros que entran y salen) y
 `UserAccountService.refresh` (la rotación y la detección de reutilización).
 
 ## 4. Los listados que crecen ya se paginan

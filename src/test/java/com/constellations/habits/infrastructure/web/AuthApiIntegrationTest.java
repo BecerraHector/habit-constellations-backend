@@ -1,6 +1,9 @@
 package com.constellations.habits.infrastructure.web;
 
 import com.constellations.habits.TestcontainersConfiguration;
+import com.constellations.habits.application.port.out.RefreshTokenRepository;
+import com.constellations.habits.domain.user.RefreshToken;
+import com.constellations.habits.infrastructure.config.RefreshTokenCleanupJob;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +15,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +41,8 @@ class AuthApiIntegrationTest {
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 
     @Autowired MockMvc mvc;
+    @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired RefreshTokenCleanupJob cleanupJob;
 
     @Test
     void el_login_entrega_ademas_un_token_de_refresco() throws Exception {
@@ -107,6 +115,46 @@ class AuthApiIntegrationTest {
                                     {"refreshToken":"%s"}""".formatted(session.refreshToken())))
                     .andExpect(status().isNoContent());
         }
+    }
+
+    @Test
+    void demasiados_fallos_de_login_frenan_incluso_la_contrasena_correcta() throws Exception {
+        String email = register("fuerza-bruta");
+
+        // Los tres primeros fallos son gratis; el cuarto arma la espera.
+        for (int i = 0; i < 4; i++) {
+            mvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"email":"%s","password":"esta-no-es"}""".formatted(email)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"constelacion-secreta"}""".formatted(email)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"));
+    }
+
+    @Test
+    void la_limpieza_borra_los_tokens_caducados_y_respeta_los_vivos() throws Exception {
+        String email = register("limpieza");
+        var session = login(email);
+
+        // Una sesion que caduco hace un mes: ya no detecta nada, solo ocupa.
+        refreshTokens.save(RefreshToken.issue(
+                userIdOf(session),
+                "hash-caducado-de-prueba",
+                Instant.now().minus(Duration.ofDays(60)),
+                Duration.ofDays(30)));
+
+        cleanupJob.purgeExpired();
+
+        assertThat(refreshTokens.findByHash("hash-caducado-de-prueba")).isEmpty();
+        // La sesion vigente sobrevive al barrido.
+        mvc.perform(refreshRequest(session.refreshToken())).andExpect(status().isOk());
     }
 
     @Test
@@ -204,6 +252,14 @@ class AuthApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         return new Session(JsonPath.read(body, "$.accessToken"), JsonPath.read(body, "$.refreshToken"));
+    }
+
+    private UUID userIdOf(Session session) throws Exception {
+        String body = mvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + session.accessToken()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(body, "$.id"));
     }
 
     private org.springframework.test.web.servlet.RequestBuilder refreshRequest(String token) {

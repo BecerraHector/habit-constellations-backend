@@ -9,6 +9,7 @@ import com.constellations.habits.application.exception.HabitNotFoundException;
 import com.constellations.habits.application.exception.InvalidCredentialsException;
 import com.constellations.habits.application.exception.InvalidRefreshTokenException;
 import com.constellations.habits.application.exception.InviteCodeNotFoundException;
+import com.constellations.habits.application.exception.TooManyAttemptsException;
 import com.constellations.habits.application.exception.UserNotFoundException;
 import com.constellations.habits.domain.ValidationException;
 import com.constellations.habits.domain.galaxy.NotAMemberException;
@@ -19,6 +20,7 @@ import com.constellations.habits.domain.social.SelfFriendshipException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -73,6 +75,14 @@ class GlobalExceptionHandler {
     @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
     ProblemDetail onInvalidCredentials(RuntimeException e) {
         return problem(HttpStatus.UNAUTHORIZED, e.getMessage());
+    }
+
+    /** El Retry-After permite a un cliente educado esperar lo justo, ni mas ni menos. */
+    @ExceptionHandler(TooManyAttemptsException.class)
+    ResponseEntity<ProblemDetail> onTooManyAttempts(TooManyAttemptsException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(Math.max(1, e.retryAfter().toSeconds())))
+                .body(problem(HttpStatus.TOO_MANY_REQUESTS, e.getMessage()));
     }
 
     @ExceptionHandler({
