@@ -39,19 +39,20 @@ De la decisión pendiente que acompañaba a esta nota, la mitad ya existe: hay
 `POST /api/v1/auth/logout-all` para cerrar todas las sesiones. Ver y enumerar las
 sesiones activas una a una sigue sin hacerse, y hoy ninguna pantalla lo pide.
 
-## 3. La capa de aplicación casi no tiene pruebas unitarias
+## 3. La capa de aplicación ya tiene pruebas unitarias
 
-**Estado:** empezado · **Riesgo:** medio
+**Estado:** hecho, en lo que pedía la nota
 
-El dominio está muy cubierto y hay pruebas de integración de extremo a extremo, pero los
-servicios de aplicación solo se ejercitan a través de HTTP y PostgreSQL. Eso encarece
-probar los casos raros: un fallo a mitad de transacción o un reloj en una fecha concreta
-exigen montar el mundo entero.
+Los dos casos que la nota señalaba están cubiertos con todos los puertos doblados y el
+reloj fijo: `GalaxyServiceWindowTest` (la ventana del mapa: defecto de 30 días, recorte
+al primer miembro —contando a quien ya se fue—, tope de 365 y valores inválidos) y
+`UserAccountServiceRefreshTest` (la rotación, la reutilización que cierra todas las
+sesiones *fuera* de transacción, y la caducidad que no cierra nada). `UserAccountServiceLoginTest`
+cubre además el freno de intentos.
 
-`UserAccountServiceLoginTest` abrió el camino (el login con el freno de intentos, con
-todos los puertos doblados). Los casos que más piden lo mismo siguen siendo
-`GalaxyService.windowStart` (la ventana con miembros que entran y salen) y
-`UserAccountService.refresh` (la rotación y la detección de reutilización).
+No es cobertura total de la capa y no pretende serlo: la regla práctica a partir de aquí
+es que cada caso de uso nuevo con lógica temporal o transaccional traiga su test unitario
+consigo, en lugar de fiarlo todo a la integración.
 
 ## 4. Los listados que crecen ya se paginan
 
