@@ -29,6 +29,12 @@ import java.util.UUID;
  */
 public class HabitService {
 
+    /** Ventana de historial cuando el cliente no pide un tramo concreto. */
+    static final int DEFAULT_HISTORY_DAYS = 90;
+
+    /** Tope de la ventana: nadie necesita releer mas de un ano de golpe. */
+    static final int MAX_HISTORY_DAYS = 366;
+
     private final HabitRepository habits;
     private final HabitLogRepository logs;
     private final UserRepository users;
@@ -79,6 +85,36 @@ public class HabitService {
     public HabitView get(UUID ownerId, UUID habitId) {
         Habit habit = requireOwned(ownerId, habitId);
         return new HabitView(habit, progressOf(habit, todayFor(ownerId)));
+    }
+
+    /**
+     * Las fechas cumplidas dentro de una ventana, para pintar el calendario del habito.
+     *
+     * <p>La normalizacion es silenciosa, como la ventana del mapa de brillo: un valor
+     * ausente o invalido cae al defecto en vez de fallar. El final se recorta al hoy del
+     * usuario (el futuro no puede contener logs) y el tamano se acota para que ningun
+     * cliente relea historias enteras de golpe.
+     */
+    public HabitHistory history(UUID ownerId, UUID habitId, LocalDate from, LocalDate to) {
+        Habit habit = requireOwned(ownerId, habitId);
+        LocalDate today = todayFor(ownerId);
+
+        LocalDate end = (to == null || to.isAfter(today)) ? today : to;
+        LocalDate start = (from == null || from.isAfter(end))
+                ? end.minusDays(DEFAULT_HISTORY_DAYS - 1)
+                : from;
+        LocalDate floor = end.minusDays(MAX_HISTORY_DAYS - 1);
+        if (start.isBefore(floor)) {
+            start = floor;
+        }
+
+        List<LocalDate> dates = logs
+                .findDatesByHabitsBetween(List.of(habit.id()), start, end)
+                .getOrDefault(habit.id(), List.of())
+                .stream()
+                .sorted()
+                .toList();
+        return new HabitHistory(start, end, dates);
     }
 
     public HabitView rename(UUID ownerId, UUID habitId, CreateHabitCommand command) {

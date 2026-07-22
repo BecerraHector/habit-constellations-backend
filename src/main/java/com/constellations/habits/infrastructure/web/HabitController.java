@@ -4,9 +4,11 @@ import com.constellations.habits.application.habit.CreateHabitCommand;
 import com.constellations.habits.application.habit.HabitService;
 import com.constellations.habits.infrastructure.security.AuthenticatedUserId;
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.CompleteHabitRequest;
+import com.constellations.habits.infrastructure.web.dto.HabitDtos.HabitHistoryResponse;
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.HabitResponse;
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.SaveHabitRequest;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,6 +66,19 @@ class HabitController {
 
         return HabitResponse.from(habits.rename(
                 principal.value(), habitId, new CreateHabitCommand(request.name(), request.description())));
+    }
+
+    /** Fechas cumplidas dentro de una ventana; sin parametros trae los ultimos 90 dias. */
+    @GetMapping("/{habitId}/logs")
+    HabitHistoryResponse history(
+            @AuthenticationPrincipal AuthenticatedUserId principal,
+            @PathVariable UUID habitId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to) {
+
+        return HabitHistoryResponse.from(habits.history(principal.value(), habitId, from, to));
     }
 
     /** Archiva, no borra: los logs y las constelaciones ganadas se conservan. */

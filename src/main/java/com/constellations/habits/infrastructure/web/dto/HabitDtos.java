@@ -1,10 +1,12 @@
 package com.constellations.habits.infrastructure.web.dto;
 
+import com.constellations.habits.application.habit.HabitHistory;
 import com.constellations.habits.application.habit.HabitView;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public final class HabitDtos {
@@ -32,6 +34,14 @@ public final class HabitDtos {
                     view.habit().description(),
                     view.habit().isArchived(),
                     ProgressResponse.from(view));
+        }
+    }
+
+    /** La ventana efectiva viaja en la respuesta: el servicio pudo recortar la pedida. */
+    public record HabitHistoryResponse(LocalDate from, LocalDate to, List<LocalDate> dates) {
+
+        public static HabitHistoryResponse from(HabitHistory history) {
+            return new HabitHistoryResponse(history.from(), history.to(), history.dates());
         }
     }
 

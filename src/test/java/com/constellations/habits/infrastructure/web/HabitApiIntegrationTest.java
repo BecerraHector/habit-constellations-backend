@@ -108,6 +108,61 @@ class HabitApiIntegrationTest {
     }
 
     @Test
+    void el_historial_devuelve_las_fechas_de_la_ventana_pedida() throws Exception {
+        String token = registerAndLogin("historiadora@constelaciones.test");
+        String habitId = createHabit(token, "Escribir el diario");
+
+        // El "hoy" que cuenta es el del usuario (Lima), no el del servidor: se toma de
+        // la propia respuesta para que el test no dependa de la hora a la que corre.
+        String body = mvc.perform(post("/api/v1/habits/" + habitId + "/completions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        LocalDate today = LocalDate.parse(JsonPath.read(body, "$.progress.lastCompletedDate"));
+        LocalDate yesterday = today.minusDays(1);
+
+        mvc.perform(post("/api/v1/habits/" + habitId + "/completions")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"date": "%s"}""".formatted(yesterday)))
+                .andExpect(status().isOk());
+
+        // Sin parametros: los ultimos 90 dias, con ambas fechas dentro y en orden.
+        mvc.perform(get("/api/v1/habits/" + habitId + "/logs")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.from").value(today.minusDays(89).toString()))
+                .andExpect(jsonPath("$.to").value(today.toString()))
+                .andExpect(jsonPath("$.dates.length()").value(2))
+                .andExpect(jsonPath("$.dates[0]").value(yesterday.toString()))
+                .andExpect(jsonPath("$.dates[1]").value(today.toString()));
+
+        // Una ventana de un solo dia deja fuera la estrella de ayer.
+        mvc.perform(get("/api/v1/habits/" + habitId + "/logs")
+                        .header("Authorization", "Bearer " + token)
+                        .param("from", today.toString())
+                        .param("to", today.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dates.length()").value(1))
+                .andExpect(jsonPath("$.dates[0]").value(today.toString()));
+    }
+
+    @Test
+    void el_historial_de_un_habito_ajeno_no_existe() throws Exception {
+        String ownerToken = registerAndLogin("cronista@constelaciones.test");
+        String habitId = createHabit(ownerToken, "Dibujar");
+
+        String intruderToken = registerAndLogin("fisgona@constelaciones.test");
+
+        mvc.perform(get("/api/v1/habits/" + habitId + "/logs")
+                        .header("Authorization", "Bearer " + intruderToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void sin_token_la_api_responde_401() throws Exception {
         mvc.perform(get("/api/v1/habits")).andExpect(status().isUnauthorized());
     }
