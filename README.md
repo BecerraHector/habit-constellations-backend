@@ -66,7 +66,7 @@ graph TD
 
     subgraph Domain["Domain — reglas de negocio puras"]
         Model["User · Habit · HabitLog<br/>Friendship · Galaxy"]
-        Engine["StreakCalculator · CompletionWindow<br/>LuminosityCalculator"]
+        Engine["StreakCalculator · CompletionWindow<br/>LuminosityCalculator · SkyCalculator"]
     end
 
     Web --> Services
@@ -249,19 +249,23 @@ mismo. Sin eso el recuento se fragmenta en variantes y ningún tema llega a pare
 popular. Seis temas sugeridos aparecen al final con cero miembros para que el catálogo no
 salga vacío el primer día, sin fingir una popularidad que todavía no tienen.
 
-### Límite conocido
+### El círculo propio
 
 En una galaxia abierta muy concurrida el brillo deja de ser presión de grupo y se
-convierte en una estadística: un ~40% constante no interpela a nadie. El modelo aguanta
-la carga —el mapa se resuelve en tres consultas sea cual sea el número de miembros—, pero
-si en uso real las galaxias grandes se sienten anónimas, la salida natural es filtrar el
-mapa a los amigos que hay dentro del grupo. Las amistades ya existen, así que es
-básicamente una condición más en la consulta.
+convierte en una estadística: un ~40% constante no interpela a nadie. Por eso el mapa
+acepta `?friends=true`: recalcula el brillo contando solo a los amigos de quien mira —y a
+quien mira—, devolviéndolo a escala humana. El desglose del día comparte el filtro, para
+que la lista de nombres siempre cuadre con la cifra, y el número de habitantes sigue
+siendo el global a propósito: el filtro cambia qué brillo ves, no cuánta gente hay.
+
+Una galaxia cuyos miembros se han ido no se borra ni se oculta: queda **a oscuras** en el
+catálogo —el orden por popularidad ya la hunde al final— y quien la descubra puede
+revivirla heredando su historia. Coherente con que el pasado nunca se reescribe.
 
 ## API
 
-Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
-`Authorization: Bearer <token>`.
+Todos los endpoints salvo `/auth/register`, `/auth/login` y `/auth/refresh` requieren la
+cabecera `Authorization: Bearer <token>`.
 
 | Método   | Ruta                              | Descripción                                |
 |----------|-----------------------------------|--------------------------------------------|
@@ -269,15 +273,22 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `POST`   | `/api/v1/auth/login`              | Obtener tokens de acceso y de refresco     |
 | `POST`   | `/api/v1/auth/refresh`            | Renovar el acceso (rota el de refresco)    |
 | `POST`   | `/api/v1/auth/logout`             | Cerrar sesión (revoca el de refresco)      |
+| `POST`   | `/api/v1/auth/logout-all`         | Cerrar todas las sesiones a la vez         |
 | `GET`    | `/api/v1/auth/me`                 | Datos del usuario autenticado              |
 | `DELETE` | `/api/v1/auth/me`                 | Dar de baja la cuenta (pide la contraseña) |
 | `GET`    | `/api/v1/habits`                  | Hábitos activos con su progreso            |
 | `POST`   | `/api/v1/habits`                  | Crear hábito                               |
+| `GET`    | `/api/v1/habits/sky?from=&to=`    | Mapa personal: nivel de brillo por día     |
 | `GET`    | `/api/v1/habits/{id}`             | Un hábito con su progreso                  |
 | `PUT`    | `/api/v1/habits/{id}`             | Renombrar o editar la descripción          |
 | `DELETE` | `/api/v1/habits/{id}`             | Archivar (no borra: conserva el historial) |
+| `GET`    | `/api/v1/habits/{id}/logs?from=&to=` | Fechas cumplidas dentro de una ventana  |
 | `POST`   | `/api/v1/habits/{id}/completions` | Marcar como cumplido (idempotente)         |
 | `DELETE` | `/api/v1/habits/{id}/completions` | Deshacer un cumplimiento                   |
+
+Las ventanas de consulta se normalizan en silencio: sin parámetros son los últimos 90
+días, el final se recorta al hoy del usuario y el tamaño se acota a un año. La ventana
+efectiva viaja en la respuesta, para que el cliente pinte sin adivinar qué le dieron.
 
 ### Social
 
@@ -301,9 +312,9 @@ Todos los endpoints salvo `/auth/register` y `/auth/login` requieren la cabecera
 | `GET`    | `/api/v1/galaxies/discover?theme=`            | Galaxias abiertas a las que unirse     |
 | `POST`   | `/api/v1/galaxies`                            | Crear una (mete dentro al creador)     |
 | `GET`    | `/api/v1/galaxies`                            | Las tuyas                              |
-| `GET`    | `/api/v1/galaxies/{id}?days=30`               | Mapa de brillo                         |
+| `GET`    | `/api/v1/galaxies/{id}?days=30&friends=`      | Mapa de brillo (opcional: solo amigos) |
 | `GET`    | `/api/v1/galaxies/{id}/members?page=&size=`   | Quiénes la habitan (paginado)          |
-| `GET`    | `/api/v1/galaxies/{id}/days/{fecha}`          | Quiénes iluminaron ese día             |
+| `GET`    | `/api/v1/galaxies/{id}/days/{fecha}?friends=` | Quiénes iluminaron ese día             |
 | `POST`   | `/api/v1/galaxies/{id}/members`               | Unirse enlazando un hábito propio      |
 | `DELETE` | `/api/v1/galaxies/{id}/members/me`            | Salir (el hábito se conserva)          |
 
@@ -403,15 +414,19 @@ ausencia no ensombrezca un día del que ya no formaba parte.
 
 ## Estado
 
-| Área                                            | Estado    |
-|-------------------------------------------------|-----------|
-| Modelado de datos y arquitectura                | Completo  |
-| Entorno Docker, CI y escaneo de secretos        | Completo  |
-| Usuarios, autenticación y CRUD de hábitos       | Completo  |
-| Motor de rachas y constelaciones                | Completo  |
-| Amistades, códigos de invitación y panel social | Completo  |
-| Constelaciones compartidas y mapa de brillo     | Completo  |
+| Área                                              | Estado           |
+|---------------------------------------------------|------------------|
+| Modelado de datos y arquitectura                  | Completo         |
+| Entorno Docker, CI y escaneo de secretos          | Completo         |
+| Usuarios, autenticación y CRUD de hábitos         | Completo         |
+| Motor de rachas y constelaciones                  | Completo         |
+| Amistades, códigos de invitación y panel social   | Completo         |
+| Constelaciones compartidas y mapa de brillo       | Completo         |
+| Frenado de intentos y limpieza de sesiones        | Completo         |
+| Historial por hábito y mapa personal del cielo    | Completo         |
+| Interfaz web ([repo aparte](https://github.com/BecerraHector/habit-constellations-frontend)) | Versión temprana |
+| Despliegue                                        | Pendiente        |
 
 Las carencias conocidas están anotadas en [PENDIENTES.md](PENDIENTES.md), con el motivo de
-cada una. Las dos más importantes —límite de intentos en el login y limpieza de sesiones
-caducadas— deberían cerrarse antes de exponer la API en un servidor público.
+cada una. La única abierta es el despliegue: todo corre en local y el siguiente paso
+natural es publicarlo.
