@@ -151,6 +151,47 @@ class HabitApiIntegrationTest {
     }
 
     @Test
+    void el_mapa_del_cielo_condensa_todos_los_habitos_en_un_nivel_por_dia() throws Exception {
+        String token = registerAndLogin("cartografa@constelaciones.test");
+        String leer = createHabit(token, "Leer");
+        createHabit(token, "Meditar");
+
+        String body = mvc.perform(post("/api/v1/habits/" + leer + "/completions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        LocalDate today = LocalDate.parse(JsonPath.read(body, "$.progress.lastCompletedDate"));
+        LocalDate yesterday = today.minusDays(1);
+
+        mvc.perform(post("/api/v1/habits/" + leer + "/completions")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"date": "%s"}""".formatted(yesterday)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/habits/sky")
+                        .header("Authorization", "Bearer " + token)
+                        .param("from", today.minusDays(2).toString())
+                        .param("to", today.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.days.length()").value(3))
+                // Antes de que nada existiera: vacio de verdad, ni apagado.
+                .andExpect(jsonPath("$.days[0].activeHabits").value(0))
+                .andExpect(jsonPath("$.days[0].level").value(0))
+                // Ayer solo cuenta la estrella rellenada: pleno de lo que existia.
+                .andExpect(jsonPath("$.days[1].activeHabits").value(1))
+                .andExpect(jsonPath("$.days[1].completions").value(1))
+                .andExpect(jsonPath("$.days[1].level").value(4))
+                // Hoy: 1 de 2, medio cielo. El maximo se reserva al pleno.
+                .andExpect(jsonPath("$.days[2].activeHabits").value(2))
+                .andExpect(jsonPath("$.days[2].completions").value(1))
+                .andExpect(jsonPath("$.days[2].level").value(2));
+    }
+
+    @Test
     void el_historial_de_un_habito_ajeno_no_existe() throws Exception {
         String ownerToken = registerAndLogin("cronista@constelaciones.test");
         String habitId = createHabit(ownerToken, "Dibujar");

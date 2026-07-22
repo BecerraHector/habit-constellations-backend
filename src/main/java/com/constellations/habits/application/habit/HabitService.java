@@ -12,6 +12,8 @@ import com.constellations.habits.domain.habit.Habit;
 import com.constellations.habits.domain.habit.HabitLog;
 import com.constellations.habits.domain.habit.InvalidLogDateException;
 import com.constellations.habits.domain.streak.HabitProgress;
+import com.constellations.habits.domain.streak.HabitSpan;
+import com.constellations.habits.domain.streak.SkyCalculator;
 import com.constellations.habits.domain.streak.StreakCalculator;
 import com.constellations.habits.domain.user.User;
 
@@ -19,7 +21,9 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Casos de uso sobre los habitos del propio usuario.
@@ -97,24 +101,66 @@ public class HabitService {
      */
     public HabitHistory history(UUID ownerId, UUID habitId, LocalDate from, LocalDate to) {
         Habit habit = requireOwned(ownerId, habitId);
-        LocalDate today = todayFor(ownerId);
-
-        LocalDate end = (to == null || to.isAfter(today)) ? today : to;
-        LocalDate start = (from == null || from.isAfter(end))
-                ? end.minusDays(DEFAULT_HISTORY_DAYS - 1)
-                : from;
-        LocalDate floor = end.minusDays(MAX_HISTORY_DAYS - 1);
-        if (start.isBefore(floor)) {
-            start = floor;
-        }
+        Window window = Window.resolve(from, to, todayFor(ownerId));
 
         List<LocalDate> dates = logs
-                .findDatesByHabitsBetween(List.of(habit.id()), start, end)
+                .findDatesByHabitsBetween(List.of(habit.id()), window.from(), window.to())
                 .getOrDefault(habit.id(), List.of())
                 .stream()
                 .sorted()
                 .toList();
-        return new HabitHistory(start, end, dates);
+        return new HabitHistory(window.from(), window.to(), dates);
+    }
+
+    /**
+     * El mapa del cielo propio: todos los habitos a la vez, dia a dia. El denominador de
+     * cada dia lo reconstruye {@link SkyCalculator} con las vidas de los habitos,
+     * archivados incluidos — por eso aqui se cargan todos, no solo los activos.
+     */
+    public SkyView sky(UUID ownerId, LocalDate from, LocalDate to) {
+        User user = users.findById(ownerId).orElseThrow(() -> new UserNotFoundException(ownerId));
+        Window window = Window.resolve(from, to, user.today(clock.instant()));
+
+        List<Habit> all = habits.findAllByOwner(ownerId);
+        if (all.isEmpty()) {
+            return new SkyView(window.from(), window.to(), List.of());
+        }
+
+        List<HabitSpan> spans = all.stream()
+                .map(habit -> new HabitSpan(
+                        habit.id(),
+                        LocalDate.ofInstant(habit.createdAt(), user.zoneId()),
+                        habit.archivedAt() == null
+                                ? null
+                                : LocalDate.ofInstant(habit.archivedAt(), user.zoneId())))
+                .toList();
+
+        Map<UUID, Set<LocalDate>> completions = logs
+                .findDatesByHabitsBetween(all.stream().map(Habit::id).toList(), window.from(), window.to())
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> Set.copyOf(entry.getValue())));
+
+        return new SkyView(
+                window.from(),
+                window.to(),
+                SkyCalculator.map(spans, completions, window.from(), window.to()));
+    }
+
+    /**
+     * Ventana de consulta normalizada en silencio: un valor ausente o invalido cae al
+     * defecto en vez de fallar, el final se recorta al hoy del usuario (el futuro no
+     * puede contener logs) y el tamano se acota a un ano.
+     */
+    private record Window(LocalDate from, LocalDate to) {
+
+        static Window resolve(LocalDate from, LocalDate to, LocalDate today) {
+            LocalDate end = (to == null || to.isAfter(today)) ? today : to;
+            LocalDate start = (from == null || from.isAfter(end))
+                    ? end.minusDays(DEFAULT_HISTORY_DAYS - 1)
+                    : from;
+            LocalDate floor = end.minusDays(MAX_HISTORY_DAYS - 1);
+            return new Window(start.isBefore(floor) ? floor : start, end);
+        }
     }
 
     public HabitView rename(UUID ownerId, UUID habitId, CreateHabitCommand command) {

@@ -7,6 +7,7 @@ import com.constellations.habits.infrastructure.web.dto.HabitDtos.CompleteHabitR
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.HabitHistoryResponse;
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.HabitResponse;
 import com.constellations.habits.infrastructure.web.dto.HabitDtos.SaveHabitRequest;
+import com.constellations.habits.infrastructure.web.dto.HabitDtos.SkyResponse;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,21 @@ class HabitController {
         var view = habits.create(
                 principal.value(), new CreateHabitCommand(request.name(), request.description()));
         return ResponseEntity.status(HttpStatus.CREATED).body(HabitResponse.from(view));
+    }
+
+    /**
+     * El mapa del cielo: todos los habitos condensados en un nivel de brillo por dia.
+     * El segmento literal gana al variable, asi que no choca con {@code /{habitId}}.
+     */
+    @GetMapping("/sky")
+    SkyResponse sky(
+            @AuthenticationPrincipal AuthenticatedUserId principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to) {
+
+        return SkyResponse.from(habits.sky(principal.value(), from, to));
     }
 
     @GetMapping("/{habitId}")

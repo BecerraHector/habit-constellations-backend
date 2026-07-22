@@ -2,6 +2,8 @@ package com.constellations.habits.infrastructure.web.dto;
 
 import com.constellations.habits.application.habit.HabitHistory;
 import com.constellations.habits.application.habit.HabitView;
+import com.constellations.habits.application.habit.SkyView;
+import com.constellations.habits.domain.streak.SkyDay;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -42,6 +44,24 @@ public final class HabitDtos {
 
         public static HabitHistoryResponse from(HabitHistory history) {
             return new HabitHistoryResponse(history.from(), history.to(), history.dates());
+        }
+    }
+
+    /** Un dia del mapa personal; misma escala de niveles que el mapa de una galaxia. */
+    public record SkyDayResponse(LocalDate date, int activeHabits, int completions, int level) {
+
+        static SkyDayResponse from(SkyDay day) {
+            return new SkyDayResponse(day.date(), day.activeHabits(), day.completions(), day.level());
+        }
+    }
+
+    public record SkyResponse(LocalDate from, LocalDate to, List<SkyDayResponse> days) {
+
+        public static SkyResponse from(SkyView view) {
+            return new SkyResponse(
+                    view.from(),
+                    view.to(),
+                    view.days().stream().map(SkyDayResponse::from).toList());
         }
     }
 
