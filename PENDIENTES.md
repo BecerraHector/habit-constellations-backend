@@ -85,7 +85,27 @@ número está acotado por el tamaño del grupo, pero en una galaxia abierta muy 
 crece. La salida sería una consulta agregada que devuelva directamente
 `(fecha, activos, cumplimientos)` en lugar de reconstruirlo en memoria.
 
-## 6. Un commit mezcló funcionalidad con arreglos
+## 6. El despliegue sigue pendiente
+
+**Estado:** pendiente — es el siguiente paso natural
+
+Todo corre solo en local: backend con `spring-boot:run`, frontend con Vite, Postgres en
+Docker. Para usarlo desde el móvil hace falta publicarlo. Lo que ya se sabe que exigirá,
+para no redescubrirlo:
+
+- **Backend**: una instancia (el estado en memoria del punto 1 lo asume), con
+  `HABITS_SECURITY_JWT_SECRET` como variable de entorno — no hay clave por defecto a
+  propósito y la app no arranca sin ella. Flyway migra al arrancar, así que la base
+  gestionada solo necesita existir. Detrás del proxy inverso de la plataforma, activar
+  `server.forward-headers-strategy` para que el freno por IP vea la IP real.
+- **CORS**: ya entra por configuración (`HABITS_WEB_CORS_ALLOWED_ORIGINS`, vacío lo
+  desactiva); al desplegar basta poner ahí el origen del frontend publicado.
+- **Frontend**: `VITE_API_URL` apunta al backend real en el build; en desarrollo queda
+  vacío y el proxy de Vite resuelve. Publicar el `dist/` estático donde convenga.
+- Candidatos considerados sin decidir aún: Railway o Fly.io para el backend, Neon o
+  Supabase para Postgres, Vercel para el estático. Decidirlo cuando toque desplegar.
+
+## 7. Un commit mezcló funcionalidad con arreglos
 
 **Estado:** anotado, no accionable
 
